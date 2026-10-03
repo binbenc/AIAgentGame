@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
+import { LEVELS } from '../../content/levels'
+import { baselineBefore } from '../../content/workspace'
 import { projectById } from '../../projects/registry'
 import { selectTasks, taskKey } from '../../projects/runner'
 import { TIER_NAMES, type ProjectDef } from '../../projects/types'
 import { useProgress, type ProjectRunRecord } from '../../state/progress'
 import { useSettings } from '../../state/settings'
 import { Button } from '../../ui/Button'
+import { Collapsible } from '../../ui/Collapsible'
 import { Markdown } from '../../ui/Markdown'
 import { Stars } from '../../ui/Stars'
 import { CodeEditor } from '../editor/CodeEditor'
+import { CompareView } from '../editor/CompareView'
 import { TracePanel } from '../trace/TracePanel'
 import { useProjectsUnlocked } from './ProjectsPage'
 import { useProjectRunner, type LiveTask } from './useProjectRunner'
@@ -28,10 +32,8 @@ const DOT: Record<LiveTask['status'], string> = {
 const pct = (x: number) => `${Math.round(x * 100)}%`
 const money = (x: number | null) => (x === null ? '—' : x < 0.01 ? `$${x.toFixed(4)}` : `$${x.toFixed(2)}`)
 
-function Brief({ project, history }: { project: ProjectDef; history: ProjectRunRecord[] }) {
+function Brief({ project, history, comparing, onCompare }: { project: ProjectDef; history: ProjectRunRecord[]; comparing: boolean; onCompare(): void }) {
   const [tab, setTab] = useState<Tab>('brief')
-  const solved = useProgress((s) => (s.projects?.[project.id]?.stars ?? 0) >= 2)
-  const [showSolution, setShowSolution] = useState(false)
   const tabs: [Tab, string][] = [
     ['brief', '需求'],
     ['tasks', `任务 ${project.tasks.length}`],
@@ -81,16 +83,9 @@ function Brief({ project, history }: { project: ProjectDef; history: ProjectRunR
         {tab === 'guide' && (
           <>
             <Markdown>{project.guide}</Markdown>
-            <Button className="mt-4" onClick={() => (solved || confirm('先自己做完？拿到 ★★ 后再看参考解法更有收获。')) && setShowSolution(!showSolution)}>
-              {showSolution ? '隐藏参考解法' : '查看参考解法'}
+            <Button className="mt-4" onClick={onCompare}>
+              {comparing ? '关闭对照' : '对照参考解法'}
             </Button>
-            {showSolution &&
-              Object.entries(project.solution).map(([p, c]) => (
-                <div key={p} className="mt-3">
-                  <div className="font-mono text-[11px] text-violet-300">{p}</div>
-                  <pre className="mt-1 max-h-96 overflow-auto rounded-md bg-slate-950 p-2 font-mono text-[11px] text-slate-300">{c}</pre>
-                </div>
-              ))}
           </>
         )}
         {tab === 'history' && (
@@ -202,12 +197,19 @@ export function ProjectPage() {
   const [selected, setSelected] = useState<string>()
   const [bench, setBench] = useState(false)
   const [busyExport, setBusyExport] = useState(false)
+  const [compare, setCompare] = useState(false)
+  const [briefOpen, setBriefOpen] = useState(true)
 
   useEffect(() => {
     if (!project) return
     enterProject(project)
     setActive(project.entry)
+    setCompare(false)
+    setBriefOpen(true)
   }, [project, enterProject])
+
+  // 参考工作区 = 全部关卡参考实现 + 项目参考解法（参考解法会 import 关卡里的模块）
+  const reference = useMemo(() => (project ? { ...baselineBefore(LEVELS, Infinity), ...project.solution } : {}), [project])
 
   const dir = project ? project.entry.slice(0, project.entry.lastIndexOf('/') + 1) : ''
   const paths = useMemo(() => {
@@ -216,6 +218,16 @@ export function ProjectPage() {
   }, [files, dir])
 
   if (!project || !unlocked) return <Navigate to="/projects" replace />
+
+  function toggleCompare() {
+    if (compare) {
+      setCompare(false)
+      setBriefOpen(true)
+    } else {
+      setCompare(true)
+      setBriefOpen(false)
+    }
+  }
 
   async function start(mode: 'mock' | 'real', opts: { scope: 'core' | 'all'; trials: number; concurrency: number } = { scope: 'core', trials: 1, concurrency: 1 }) {
     const cfg = provider()
@@ -268,7 +280,9 @@ export function ProjectPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <Brief project={project} history={history} />
+      <Collapsible open={briefOpen} onToggle={() => setBriefOpen(true)} label="需求与任务">
+        <Brief project={project} history={history} comparing={compare} onCompare={toggleCompare} />
+      </Collapsible>
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-800 px-2 py-1">
           {paths.map((p) => (
@@ -295,7 +309,22 @@ export function ProjectPage() {
             ＋ 新文件
           </button>
         </div>
-        <div className="min-h-0 flex-[3]">{active && <CodeEditor files={files} active={active} onChange={setFile} />}</div>
+        <div className="min-h-0 flex-[3]">
+          {active &&
+            (compare ? (
+              <CompareView
+                files={files}
+                active={active}
+                setActive={setActive}
+                onChange={setFile}
+                reference={reference}
+                highlight={Object.keys(project.solution)}
+                onClose={toggleCompare}
+              />
+            ) : (
+              <CodeEditor files={files} active={active} onChange={setFile} />
+            ))}
+        </div>
         <div className="flex items-center gap-2 border-y border-slate-800 bg-slate-900/60 px-3 py-1.5">
           {runner.running ? (
             <Button variant="danger" onClick={runner.stop}>
@@ -310,6 +339,9 @@ export function ProjectPage() {
             </>
           )}
           <div className="flex-1" />
+          <Button variant={compare ? 'secondary' : 'ghost'} onClick={toggleCompare}>
+            {compare ? '关闭对照' : '对照参考解法'}
+          </Button>
           <Button variant="ghost" onClick={exportZip} disabled={busyExport}>
             {busyExport ? '打包中…' : '⬇ 导出项目'}
           </Button>

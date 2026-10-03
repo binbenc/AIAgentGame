@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useParams } from 'react-router'
 import { LEVELS, levelById } from '../../content/levels'
+import { solutionThrough } from '../../content/workspace'
 import type { LevelDef } from '../../content/types'
 import { isUnlocked, useProgress } from '../../state/progress'
 import { useSettings } from '../../state/settings'
 import { Button } from '../../ui/Button'
+import { Collapsible } from '../../ui/Collapsible'
 import { Markdown } from '../../ui/Markdown'
 import { Stars } from '../../ui/Stars'
 import { CodeEditor } from '../editor/CodeEditor'
+import { CompareView } from '../editor/CompareView'
 import { TracePanel } from '../trace/TracePanel'
 import { useRunner, type LiveScenario } from './useRunner'
 
@@ -83,30 +86,6 @@ function Brief({ level }: { level: LevelDef }) {
         )}
       </div>
     </aside>
-  )
-}
-
-function SolutionModal({ level, onClose }: { level: LevelDef; onClose(): void }) {
-  const paths = Object.keys(level.solution)
-  const [active, setActive] = useState(paths[0])
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6" onClick={onClose}>
-      <div className="flex h-[80vh] w-full max-w-4xl flex-col rounded-xl border border-slate-700 bg-slate-900" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-2">
-          <span className="text-sm font-semibold text-white">参考实现</span>
-          {paths.map((p) => (
-            <button key={p} onClick={() => setActive(p)} className={`rounded px-2 py-0.5 font-mono text-xs ${active === p ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>
-              {p}
-            </button>
-          ))}
-          <div className="flex-1" />
-          <Button variant="ghost" onClick={onClose}>
-            关闭
-          </Button>
-        </div>
-        <pre className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed text-slate-300">{level.solution[active]}</pre>
-      </div>
-    </div>
   )
 }
 
@@ -203,19 +182,35 @@ export function LevelPage() {
   const provider = useSettings((s) => s.effectiveProvider)
   const runner = useRunner()
   const [active, setActive] = useState('')
-  const [showSolution, setShowSolution] = useState(false)
+  const [compare, setCompare] = useState(false)
+  const [briefOpen, setBriefOpen] = useState(true)
 
   useEffect(() => {
     if (!level) return
     enterLevel(level)
     setActive(level.files[0].path)
+    setCompare(false)
+    setBriefOpen(true)
   }, [level, enterLevel])
+
+  // 参考工作区 = 截至本关的全部参考实现，保证参考代码里 import 的前面关卡模块也能解析
+  const reference = useMemo(() => (level ? solutionThrough(LEVELS, level.number) : {}), [level])
 
   const focus = useMemo(() => new Set(level?.files.map((f) => f.path)), [level])
   const paths = useMemo(() => {
     const all = Object.keys(files)
     return [...all.filter((p) => focus.has(p)), ...all.filter((p) => !focus.has(p)).sort()]
   }, [files, focus])
+
+  const toggleCompare = () => {
+    if (compare) {
+      setCompare(false)
+      setBriefOpen(true)
+    } else {
+      setCompare(true)
+      setBriefOpen(false)
+    }
+  }
 
   if (!level) return <Navigate to="/map" replace />
   if (!isUnlocked(level, levelsProgress, freeMode)) return <Navigate to="/map" replace />
@@ -231,7 +226,9 @@ export function LevelPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <Brief level={level} />
+      <Collapsible open={briefOpen} onToggle={() => setBriefOpen(true)} label="剧情与任务">
+        <Brief level={level} />
+      </Collapsible>
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-800 px-2 py-1">
           {paths.map((p) => (
@@ -247,7 +244,22 @@ export function LevelPage() {
             </button>
           ))}
         </div>
-        <div className="min-h-0 flex-[3]">{active && <CodeEditor files={files} active={active} onChange={setFile} />}</div>
+        <div className="min-h-0 flex-[3]">
+          {active &&
+            (compare ? (
+              <CompareView
+                files={files}
+                active={active}
+                setActive={setActive}
+                onChange={setFile}
+                reference={reference}
+                highlight={Object.keys(level.solution)}
+                onClose={toggleCompare}
+              />
+            ) : (
+              <CodeEditor files={files} active={active} onChange={setFile} />
+            ))}
+        </div>
         <div className="flex items-center gap-2 border-y border-slate-800 bg-slate-900/60 px-3 py-1.5">
           {runner.running ? (
             <Button variant="danger" onClick={runner.stop}>
@@ -273,20 +285,14 @@ export function LevelPage() {
           >
             ↺ {t('level.resetFile')}
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              if ((levelsProgress[level.id]?.passed || confirm(t('level.solutionConfirm'))) && true) setShowSolution(true)
-            }}
-          >
-            {t('level.showSolution')}
+          <Button variant={compare ? 'secondary' : 'ghost'} onClick={toggleCompare}>
+            {compare ? t('level.closeSolution') : t('level.showSolution')}
           </Button>
         </div>
         <div className="min-h-0 flex-[2]">
           <Results level={level} runner={runner} />
         </div>
       </section>
-      {showSolution && <SolutionModal level={level} onClose={() => setShowSolution(false)} />}
     </div>
   )
 }
