@@ -1,0 +1,25 @@
+import { subtotal } from './cart'
+import { applyCoupons } from './coupons'
+import { taxFor } from './tax'
+import type { Coupon, LineItem } from './types'
+
+export interface Receipt {
+  subtotal: number
+  discount: number
+  tax: number
+  total: number
+  coupons: string[]
+}
+
+/** 结账：小计 → 优惠 → 按优惠后的金额计税 → 合计。所有金额单位都是分。 */
+export function checkout(items: LineItem[], coupons: Coupon[] = [], taxRate = 0): Receipt {
+  const sub = subtotal(items)
+  const { total: afterCoupons, applied } = applyCoupons(sub, coupons)
+  const tax = taxFor(afterCoupons, taxRate)
+  return { subtotal: sub, discount: sub - afterCoupons, tax, total: afterCoupons + tax, coupons: applied }
+}
+
+/** 把分格式化成 "¥12.34" */
+export function formatCents(cents: number): string {
+  return `¥${(cents / 100).toFixed(2)}`
+}

@@ -90,6 +90,11 @@ npm run agent -- "我是 alice@example.com，最近那单到哪了？"`}
           )}
         </div>
 
+        <Link to="/projects" className="mt-6 block rounded-xl border border-violet-800/60 bg-violet-950/30 p-5 hover:border-violet-500">
+          <div className="font-semibold text-white">下一步：实战项目 →</div>
+          <p className="mt-1 text-sm text-slate-400">用你的代码库去做以经典基准为原型的真实项目，每个项目都能单独导出成作品。</p>
+        </Link>
+
         <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/50 p-5">
           <h2 className="mb-3 font-semibold text-white">闯关记录</h2>
           <ul className="divide-y divide-slate-800">

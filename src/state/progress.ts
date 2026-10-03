@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { LEVELS } from '../content/levels'
 import { baselineBefore, prepareWorkspace, type Files } from '../content/workspace'
 import type { LevelDef } from '../content/types'
+import type { ProjectDef } from '../projects/types'
 
 export interface LevelProgress {
   stars: number
@@ -13,22 +14,45 @@ export interface LevelProgress {
   bestTokens?: number
 }
 
+/** 一次项目运行的摘要（用于历史对比） */
+export interface ProjectRunRecord {
+  at: number
+  mode: 'mock' | 'real'
+  tasks: number
+  trials: number
+  passAt1: number
+  passHatK: number
+  totalTokens: number
+  costUsd: number | null
+  p50Ms: number
+  model?: string
+}
+
+export interface ProjectProgress {
+  stars: number
+  bestPassRate: number
+  history: ProjectRunRecord[]
+}
+
 export interface SaveData {
   version: 1
   files: Files
   levels: Record<string, LevelProgress>
   /** 哪些文件是用参考实现自动补上的（跳关时） */
   borrowed: string[]
+  projects?: Record<string, ProjectProgress>
 }
 
 const KEY = 'agent-quest:save'
 
-const empty = (): SaveData => ({ version: 1, files: {}, levels: {}, borrowed: [] })
+const empty = (): SaveData => ({ version: 1, files: {}, levels: {}, borrowed: [], projects: {} })
 
 interface ProgressStore extends SaveData {
   loaded: boolean
   load(): Promise<void>
   enterLevel(level: LevelDef): string[]
+  enterProject(project: ProjectDef): void
+  recordProject(projectId: string, run: ProjectRunRecord, stars: number): void
   setFile(path: string, content: string): void
   resetFile(level: LevelDef, path: string): void
   record(levelId: string, patch: Partial<LevelProgress>): void
@@ -49,8 +73,8 @@ function persist(data: SaveData) {
 export const useProgress = create<ProgressStore>((set, get) => {
   const commit = (patch: Partial<SaveData>) => {
     set(patch)
-    const { version, files, levels, borrowed } = get()
-    persist({ version, files, levels, borrowed })
+    const { version, files, levels, borrowed, projects } = get()
+    persist({ version, files, levels, borrowed, projects })
   }
   return {
     ...empty(),
@@ -78,6 +102,29 @@ export const useProgress = create<ProgressStore>((set, get) => {
       commit({ files: r.files, borrowed: [...borrowed] })
       return r.added
     },
+    enterProject(project) {
+      // 项目依赖关卡代码库：缺失的模块用参考实现补齐（标记为“参考”）
+      const base = baselineBefore(LEVELS, Infinity)
+      const files = { ...get().files }
+      const borrowed = new Set(get().borrowed)
+      for (const [p, c] of Object.entries(base))
+        if (!(p in files)) {
+          files[p] = c
+          borrowed.add(p)
+        }
+      for (const [p, c] of Object.entries(project.starter)) if (!(p in files)) files[p] = c
+      commit({ files, borrowed: [...borrowed] })
+    },
+    recordProject(projectId, run, stars) {
+      const all = { ...(get().projects ?? {}) }
+      const prev = all[projectId] ?? { stars: 0, bestPassRate: 0, history: [] }
+      all[projectId] = {
+        stars: Math.max(prev.stars, stars),
+        bestPassRate: run.mode === 'real' ? Math.max(prev.bestPassRate, run.passAt1) : prev.bestPassRate,
+        history: [run, ...prev.history].slice(0, 30),
+      }
+      commit({ projects: all })
+    },
     setFile(path, content) {
       const borrowed = get().borrowed.filter((p) => p !== path)
       commit({ files: { ...get().files, [path]: content }, borrowed })
@@ -98,7 +145,7 @@ export const useProgress = create<ProgressStore>((set, get) => {
       commit({ levels: { ...get().levels, [levelId]: next } })
     },
     importSave(data) {
-      commit({ files: data.files ?? {}, levels: data.levels ?? {}, borrowed: data.borrowed ?? [] })
+      commit({ files: data.files ?? {}, levels: data.levels ?? {}, borrowed: data.borrowed ?? [], projects: data.projects ?? {} })
     },
     resetAll() {
       commit(empty())

@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { formatDate } from '../src/format'
+
+test('默认格式', () => {
+  expect(formatDate({ year: 2024, month: 1, day: 5 })).toBe('2024-01-05')
+})
+
+test('自定义格式', () => {
+  expect(formatDate({ year: 2024, month: 12, day: 25 }, 'YYYY/M/D')).toBe('2024/12/25')
+  expect(formatDate({ year: 2024, month: 3, day: 7 }, 'M月D日')).toBe('3月7日')
+})
+
+test('两位补零', () => {
+  expect(formatDate({ year: 2024, month: 3, day: 7 }, 'MM/DD')).toBe('03/07')
+})

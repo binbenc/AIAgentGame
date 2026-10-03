@@ -68,6 +68,11 @@ export function MapPage() {
             </section>
           )
         })}
+        <Link to="/projects" className="block rounded-xl border border-violet-800/60 bg-gradient-to-r from-violet-950/60 to-emerald-950/40 p-5 hover:border-violet-500">
+          <div className="text-xs font-medium text-violet-300">通关之后</div>
+          <div className="mt-1 text-lg font-semibold text-white">实战项目 →</div>
+          <p className="mt-1 text-sm text-slate-400">以 τ-bench、SWE-bench、WebArena 等经典 Agent 基准为原型的真实项目：没有 TODO，架构由你设计，用真实模型跑基准。</p>
+        </Link>
       </div>
     </div>
   )

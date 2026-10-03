@@ -1,0 +1,30 @@
+import { expect, test } from 'testkit'
+import { checkout, formatCents } from '../src/checkout'
+import { taxFor } from '../src/tax'
+
+const shirt = { sku: 'TEE', name: 'T 恤', unitPrice: 5000, quantity: 2 }
+
+test('税额', () => {
+  expect(taxFor(1000, 0.13)).toBe(130)
+  expect(taxFor(0, 0.13)).toBe(0)
+})
+
+test('税率不能为负', () => {
+  expect(() => taxFor(100, -0.1)).toThrow()
+})
+
+test('结账', () => {
+  expect(checkout([shirt], [], 0.06)).toEqual({ subtotal: 10000, discount: 0, tax: 600, total: 10600, coupons: [] })
+})
+
+test('结账（含优惠券）', () => {
+  const r = checkout([shirt], [{ code: 'P10', kind: 'percent', value: 10 }], 0.06)
+  expect(r.discount).toBe(1000)
+  expect(r.tax).toBe(540)
+  expect(r.total).toBe(9540)
+})
+
+test('金额格式化', () => {
+  expect(formatCents(123456)).toBe('¥1234.56')
+  expect(formatCents(5)).toBe('¥0.05')
+})

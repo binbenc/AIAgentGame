@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { parseDate } from '../src/date'
+
+test('平年没有 2 月 29 日', () => {
+  expect(() => parseDate('2023-02-29')).toThrow()
+})
+
+test('4 月没有 31 日', () => {
+  expect(() => parseDate('2024-04-31')).toThrow()
+})
+
+test('闰年 2 月 29 日是合法的', () => {
+  expect(parseDate('2024-02-29')).toEqual({ year: 2024, month: 2, day: 29 })
+})

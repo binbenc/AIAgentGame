@@ -45,6 +45,8 @@ export function CodeEditor({
         automaticLayout: true,
         fontFamily: "'JetBrains Mono', Menlo, monospace",
         padding: { top: 10 },
+        // 中文注释里的全角标点不是“可疑字符”
+        unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false },
       }}
     />
   )

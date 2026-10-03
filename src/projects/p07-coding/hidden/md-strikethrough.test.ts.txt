@@ -1,0 +1,11 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+import { renderMarkdown } from '../src/block'
+
+test('删除线', () => {
+  expect(renderInline('~~old~~ new')).toBe('<del>old</del> new')
+})
+
+test('段落里的删除线', () => {
+  expect(renderMarkdown('price: ~~100~~ 80')).toBe('<p>price: <del>100</del> 80</p>')
+})

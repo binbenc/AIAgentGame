@@ -1,0 +1,26 @@
+import { expect, test } from 'testkit'
+import { applyCoupons } from '../src/coupons'
+
+const P10 = { code: 'P10', kind: 'percent' as const, value: 10 }
+const F20 = { code: 'F20', kind: 'fixed' as const, value: 2000, minSpend: 10000 }
+
+test('百分比券', () => {
+  expect(applyCoupons(10000, [P10])).toEqual({ total: 9000, applied: ['P10'] })
+})
+
+test('满减券', () => {
+  expect(applyCoupons(15000, [F20])).toEqual({ total: 13000, applied: ['F20'] })
+})
+
+test('未达门槛不能用满减', () => {
+  expect(applyCoupons(9999, [F20])).toEqual({ total: 9999, applied: [] })
+})
+
+test('先打折再满减', () => {
+  expect(applyCoupons(20000, [P10, F20]).total).toBe(16000)
+})
+
+test('满减门槛按原价判断', () => {
+  // 10500 打九折后是 9450，低于门槛，但门槛按原价算，所以满减仍然可用
+  expect(applyCoupons(10500, [P10, F20]).total).toBe(7450)
+})

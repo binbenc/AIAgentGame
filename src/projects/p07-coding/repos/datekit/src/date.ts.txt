@@ -1,0 +1,34 @@
+/** 一个不带时区的日历日期。month 从 1 开始（1 = 一月）。 */
+export interface SimpleDate {
+  year: number
+  month: number
+  day: number
+}
+
+/** 公历闰年：能被 4 整除但不能被 100 整除，或者能被 400 整除 */
+export function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+const DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+/** 某年某月有多少天 */
+export function daysInMonth(year: number, month: number): number {
+  if (month === 2 && isLeapYear(year)) return 29
+  return DAYS[month - 1]
+}
+
+/** 解析 YYYY-MM-DD；格式不对或日期不存在时抛错 */
+export function parseDate(s: string): SimpleDate {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  if (!m) throw new Error(`无效的日期格式：${s}`)
+  const d = { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) }
+  if (d.month < 1 || d.month > 12) throw new RangeError(`无效的月份：${s}`)
+  if (d.day < 1 || d.day > daysInMonth(d.year, d.month)) throw new RangeError(`无效的日期：${s}`)
+  return d
+}
+
+/** a 早于 b 返回负数，相同返回 0，晚于 b 返回正数 */
+export function compareDates(a: SimpleDate, b: SimpleDate): number {
+  return a.year - b.year || a.month - b.month || a.day - b.day
+}

@@ -1,0 +1,10 @@
+import { expect, test } from 'testkit'
+import { renderMarkdown } from '../src/block'
+
+test('文档以列表结尾时要闭合 </ul>', () => {
+  expect(renderMarkdown('- a\n- b')).toBe('<ul>\n<li>a</li>\n<li>b</li>\n</ul>')
+})
+
+test('段落后接列表结尾', () => {
+  expect(renderMarkdown('intro\n- x')).toBe('<p>intro</p>\n<ul>\n<li>x</li>\n</ul>')
+})

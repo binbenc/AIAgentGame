@@ -1,0 +1,27 @@
+import { expect, test } from 'testkit'
+import { addDays, addMonths } from '../src/add'
+
+test('加天数', () => {
+  expect(addDays({ year: 2024, month: 1, day: 30 }, 3)).toEqual({ year: 2024, month: 2, day: 2 })
+})
+
+test('加天数跨年', () => {
+  expect(addDays({ year: 2023, month: 12, day: 31 }, 1)).toEqual({ year: 2024, month: 1, day: 1 })
+})
+
+test('减天数', () => {
+  expect(addDays({ year: 2024, month: 3, day: 10 }, -5)).toEqual({ year: 2024, month: 3, day: 5 })
+})
+
+test('加月份', () => {
+  expect(addMonths({ year: 2024, month: 1, day: 15 }, 1)).toEqual({ year: 2024, month: 2, day: 15 })
+})
+
+test('月末截断', () => {
+  expect(addMonths({ year: 2023, month: 1, day: 31 }, 1)).toEqual({ year: 2023, month: 2, day: 28 })
+  expect(addMonths({ year: 2024, month: 1, day: 31 }, 1)).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test('加月份跨年', () => {
+  expect(addMonths({ year: 2024, month: 11, day: 30 }, 3)).toEqual({ year: 2025, month: 2, day: 28 })
+})

@@ -1,6 +1,7 @@
 import type { ScenarioResult, SuiteResult, RunMode } from '../judge/types'
 import type { ChatRequest, ChatResponse, StreamEvent } from '../llm/types'
 import type { TraceEvent } from '../trace'
+import type { ProjectRunResult, TaskRunResult } from '../../projects/types'
 
 export interface SerializedError {
   name: string
@@ -12,6 +13,7 @@ export interface SerializedError {
 /** 宿主 → Worker */
 export type HostMessage =
   | { type: 'run'; levelId: string; files: Record<string, string>; mode: RunMode; only?: string[] }
+  | { type: 'run-project'; projectId: string; files: Record<string, string>; mode: RunMode; taskIds?: string[]; trials?: number; concurrency?: number }
   | { type: 'llm-result'; id: number; res: ChatResponse }
   | { type: 'llm-event'; id: number; event: StreamEvent }
   | { type: 'llm-end'; id: number }
@@ -26,4 +28,6 @@ export type WorkerMessage =
   | { type: 'event'; scenario: string; event: TraceEvent }
   | { type: 'scenario-end'; result: ScenarioResult }
   | { type: 'done'; result: SuiteResult }
+  | { type: 'task-end'; result: TaskRunResult }
+  | { type: 'project-done'; result: ProjectRunResult }
   | { type: 'fatal'; error: SerializedError }

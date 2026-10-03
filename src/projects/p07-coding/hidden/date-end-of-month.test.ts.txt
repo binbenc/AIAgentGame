@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { endOfMonth } from '../src/index'
+
+test('endOfMonth 从包入口导出', () => {
+  expect(typeof endOfMonth).toBe('function')
+})
+
+test('endOfMonth：闰年二月', () => {
+  expect(endOfMonth({ year: 2024, month: 2, day: 10 })).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test('endOfMonth：小月和年末', () => {
+  expect(endOfMonth({ year: 2023, month: 4, day: 1 })).toEqual({ year: 2023, month: 4, day: 30 })
+  expect(endOfMonth({ year: 2023, month: 12, day: 31 })).toEqual({ year: 2023, month: 12, day: 31 })
+})

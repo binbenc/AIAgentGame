@@ -7,6 +7,7 @@ const PILLARS = [
   { title: '真实代码', body: '在浏览器里写 TypeScript，代码跑在沙箱里。没有拖拽积木，写的就是生产环境里的 Agent 内核。' },
   { title: '真实失败', body: '模拟模型会按剧情制造线上事故：限流、幻觉工具、坏 JSON、prompt 注入……你得亲手修好。' },
   { title: '可量化', body: '每关自动判题：通过拿 ★，调用次数达标拿 ★★，token 达标拿 ★★★。Trace 面板逐步展示 Agent 做了什么。' },
+  { title: '实战项目', body: '通关后进入实战：帮助中心问答、τ-bench 式零售客服、SWE-bench 式编码 Agent……用和模型无关的客观判定跑你自己的基准，看 pass@1、pass^k 和成本。' },
   { title: '能落地', body: '随时切换到真实模型（Claude / GPT / DeepSeek / 通义 / Ollama）。毕业时把你自己写的代码导出成 Node 工程。' },
 ]
 

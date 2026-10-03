@@ -12,7 +12,9 @@
     "typecheck": "tsc -b --noEmit",
     "proxy": "node proxy/agent-proxy.mjs",
     "budgets": "SCRIPT=budgets vitest run",
-    "verify:export": "SCRIPT=verify-export vitest run"
+    "verify:export": "SCRIPT=verify-export vitest run",
+    "project-report": "SCRIPT=project-report vitest run",
+    "verify:project-export": "SCRIPT=verify-project-export vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

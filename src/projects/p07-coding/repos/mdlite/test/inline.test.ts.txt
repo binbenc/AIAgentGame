@@ -1,0 +1,22 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+
+test('粗体', () => {
+  expect(renderInline('**bold**')).toBe('<strong>bold</strong>')
+})
+
+test('星号斜体', () => {
+  expect(renderInline('*em*')).toBe('<em>em</em>')
+})
+
+test('下划线斜体', () => {
+  expect(renderInline('_italic_')).toBe('<em>italic</em>')
+})
+
+test('行内代码', () => {
+  expect(renderInline('run `npm test` now')).toBe('run <code>npm test</code> now')
+})
+
+test('文本会被转义', () => {
+  expect(renderInline('a & b')).toBe('a &amp; b')
+})

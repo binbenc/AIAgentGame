@@ -1,0 +1,20 @@
+import { expect, test } from 'testkit'
+import { subtotal } from '../src/cart'
+
+const item = { sku: 'PEN', name: '钢笔', unitPrice: 1250, quantity: 1 }
+
+test('数量为 0 时报错', () => {
+  expect(() => subtotal([{ ...item, quantity: 0 }])).toThrow('数量无效')
+})
+
+test('数量为负数时报错', () => {
+  expect(() => subtotal([{ ...item, quantity: -2 }])).toThrow('数量无效')
+})
+
+test('数量为小数时报错', () => {
+  expect(() => subtotal([{ ...item, quantity: 1.5 }])).toThrow('数量无效')
+})
+
+test('正常数量不受影响', () => {
+  expect(subtotal([{ ...item, quantity: 3 }])).toBe(3750)
+})

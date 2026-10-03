@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+
+test('行内代码里的星号不是强调', () => {
+  expect(renderInline('`a*b*c`')).toBe('<code>a*b*c</code>')
+})
+
+test('行内代码里的下划线不是强调', () => {
+  expect(renderInline('see `_x_` here')).toBe('see <code>_x_</code> here')
+})
+
+test('行内代码内容要转义', () => {
+  expect(renderInline('`x < y`')).toBe('<code>x &lt; y</code>')
+})

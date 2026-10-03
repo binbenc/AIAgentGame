@@ -1,0 +1,43 @@
+import { daysInMonth, type SimpleDate } from './date'
+
+/** 当月的最后一天 */
+export function endOfMonth(d: SimpleDate): SimpleDate {
+  return { year: d.year, month: d.month, day: daysInMonth(d.year, d.month) }
+}
+
+/** 加 n 天（n 可以为负） */
+export function addDays(d: SimpleDate, n: number): SimpleDate {
+  let { year, month } = d
+  let day = d.day + n
+  // 向后跨月
+  while (day > daysInMonth(year, month)) {
+    day -= daysInMonth(year, month)
+    month++
+    if (month > 12) {
+      month = 1
+      year++
+    }
+  }
+  // 向前跨月
+  while (day < 1) {
+    month--
+    if (month < 1) {
+      month = 12
+      year--
+    }
+    day += daysInMonth(year, month)
+  }
+  return { year, month, day }
+}
+
+/**
+ * 加 n 个月（n 可以为负）。
+ * 目标月份没有这一天时取该月最后一天：1 月 31 日 + 1 个月 = 2 月 28 日（闰年 29 日）。
+ */
+export function addMonths(d: SimpleDate, n: number): SimpleDate {
+  const zeroBased = d.month - 1 + n
+  const year = d.year + Math.floor(zeroBased / 12)
+  const month = (((zeroBased % 12) + 12) % 12) + 1
+  const day = Math.min(d.day, daysInMonth(year, month))
+  return { year, month, day }
+}

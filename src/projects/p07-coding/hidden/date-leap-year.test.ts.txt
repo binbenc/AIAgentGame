@@ -1,0 +1,16 @@
+import { expect, test } from 'testkit'
+import { addMonths } from '../src/add'
+import { daysInMonth, isLeapYear } from '../src/date'
+
+test('能被 400 整除的年份是闰年', () => {
+  expect(isLeapYear(2000)).toBe(true)
+  expect(isLeapYear(2400)).toBe(true)
+})
+
+test('2000 年 2 月有 29 天', () => {
+  expect(daysInMonth(2000, 2)).toBe(29)
+})
+
+test('2000-01-31 加 1 个月是 2000-02-29', () => {
+  expect(addMonths({ year: 2000, month: 1, day: 31 }, 1)).toEqual({ year: 2000, month: 2, day: 29 })
+})

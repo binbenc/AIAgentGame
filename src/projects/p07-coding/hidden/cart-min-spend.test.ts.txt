@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { checkout } from '../src/checkout'
+import { applyCoupons } from '../src/coupons'
+
+const F20 = { code: 'F20', kind: 'fixed' as const, value: 2000, minSpend: 10000 }
+
+test('小计恰好等于门槛时可以用满减', () => {
+  expect(applyCoupons(10000, [F20])).toEqual({ total: 8000, applied: ['F20'] })
+})
+
+test('结账：恰好满 100 元减 20 元', () => {
+  const r = checkout([{ sku: 'BAG', name: '帆布包', unitPrice: 5000, quantity: 2 }], [F20])
+  expect(r.total).toBe(8000)
+  expect(r.coupons).toEqual(['F20'])
+})

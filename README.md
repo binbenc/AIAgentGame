@@ -7,6 +7,18 @@
 - **可量化**：通过 ★ / 模型调用次数达标 ★★ / token 达标 ★★★；Trace 面板逐步展示 Agent 的每一次模型调用、工具调用，以及 Anthropic / OpenAI 两种协议的原始报文。
 - **能落地**：随时切换到真实模型（Claude / OpenAI / DeepSeek / 通义 / Kimi / Ollama）；毕业时导出工程，`npm install && npm test` 直接可跑。
 
+## 实战项目
+
+通关后解锁（设置里开启自由模式可提前体验）。每个项目以经典 Agent 案例或基准为原型：真实环境 + 一批任务 + **和模型无关的客观判定**，不给 TODO，架构由玩家设计并复用关卡代码库。模拟模型核心集负责评星；用真实模型跑「基准」，输出 pass@1、pass^k、token、费用和延迟；每个项目都能单独导出（`npm test` 回归 + `npm run bench` 基准报告）。
+
+| # | 难度 | 项目 | 原型 | 判定 |
+|---|---|---|---|---|
+| P1 | 入门 | 帮助中心问答 | Chat with Docs / RAG | 关键事实 + 引用正确 + 不用过时文档 + 该拒答时拒答 |
+| P5 | 进阶 | 零售客服 | τ-bench (retail) | 数据库最终状态 + 政策合规（先验身份、逐项确认） |
+| P7 | 高级 | 编码 Agent | SWE-bench / mini-swe-agent | 隐藏测试（FAIL_TO_PASS）+ 原有测试不回归 + 不许改测试 |
+
+规划中：邮件分拣、Text-to-SQL、会议日程、旅行规划、数据分析、深度研究、网页操作、运维 on-call。编写方法见 [docs/PROJECT_AUTHORING.md](docs/PROJECT_AUTHORING.md)。
+
 ## 开发
 
 ```bash
@@ -15,6 +27,8 @@ npm run dev              # 本地开发 http://localhost:5173
 npm test                 # 引擎 + 关卡完整性测试（每关参考实现三星通关、初始代码不能通关、回归）
 npm run budgets          # 打印每关参考实现的调用次数 / token，用来校准星级预算
 npm run verify:export    # 用全部参考实现生成导出工程，在临时目录 npm install && npm test && tsc
+npm run verify:project-export   # 每个实战项目单独导出并验证（PROJECT=p05 只验证一个）
+PROJECT=p05 npm run project-report   # 逐题查看项目参考解法 / starter 在核心集上的结果
 npx playwright test      # 端到端冒烟测试
 npm run build            # 纯静态产物 → dist/，可以部署到任何静态托管（Vercel / Pages / Nginx / 内网）
 npm run proxy            # 本地 CORS 代理（只监听 127.0.0.1，只转发白名单域名）

@@ -1,0 +1,28 @@
+import type { SimpleDate } from './date'
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n)
+}
+
+/**
+ * 按模式格式化日期。支持的占位符：
+ * - YYYY 四位年份
+ * - MM / DD 两位月份 / 日期（补零）
+ * - M / D 不补零的月份 / 日期
+ */
+export function formatDate(d: SimpleDate, pattern = 'YYYY-MM-DD'): string {
+  return pattern.replace(/YYYY|MM|DD|M|D/g, (token) => {
+    switch (token) {
+      case 'YYYY':
+        return String(d.year).padStart(4, '0')
+      case 'MM':
+        return pad2(d.month)
+      case 'DD':
+        return pad2(d.day)
+      case 'M':
+        return String(d.month)
+      default:
+        return String(d.day)
+    }
+  })
+}

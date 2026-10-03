@@ -1,0 +1,10 @@
+import { expect, test } from 'testkit'
+import { renderMarkdown } from '../src/block'
+
+test('7 个 # 不是标题', () => {
+  expect(renderMarkdown('####### seven')).toBe('<p>####### seven</p>')
+})
+
+test('6 个 # 是 h6', () => {
+  expect(renderMarkdown('###### six')).toBe('<h6>six</h6>')
+})

@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { escapeHtml } from '../src/escape'
+import { renderMarkdown } from '../src/block'
+
+test('转义 < 和 >', () => {
+  expect(escapeHtml('a < b > c')).toBe('a &lt; b &gt; c')
+})
+
+test('混合转义只转一次', () => {
+  expect(escapeHtml('<a href="x">&</a>')).toBe('&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;')
+})
+
+test('标题里的小于号', () => {
+  expect(renderMarkdown('# a < b')).toBe('<h1>a &lt; b</h1>')
+})

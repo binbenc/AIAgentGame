@@ -1,0 +1,5 @@
+/** 计算税额（分），四舍五入到分。rate 例如 0.13 表示 13% */
+export function taxFor(cents: number, rate: number): number {
+  if (rate < 0) throw new RangeError(`税率不能为负数：${rate}`)
+  return Math.round(cents * rate)
+}

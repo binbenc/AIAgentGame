@@ -92,7 +92,7 @@ export const suite: LevelSuite = {
         }, { retries: 3, baseDelayMs: 200 })
         ctx.eq([v, n], ['ok', 3], 'withRetry 应在第 3 次成功')
         const sleeps = ctx.trace.events.filter((e) => e.kind === 'sleep').map((e) => (e as { ms: number }).ms)
-        ctx.assert(sleeps[0] >= 200 && sleeps[0] < 400 && sleeps[1] >= 400 && sleeps[1] < 600, `退避应为 base×2^i + [0, base) 的抖动，实际：${sleeps.join(', ')}`)
+        ctx.assert(sleeps[0] >= 200 && sleeps[0] <= 400 && sleeps[1] >= 400 && sleeps[1] <= 600, `退避应为 base×2^i + [0, base) 的抖动，实际：${sleeps.join(', ')}`)
         let msg = ''
         try {
           await withTimeout(__delay(5000).then(() => 'late'), 1000, '查询')

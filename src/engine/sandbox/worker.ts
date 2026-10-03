@@ -4,6 +4,8 @@
  */
 import { LEVELS } from '../../content/levels'
 import { runSuite } from '../judge/runner'
+import { projectById } from '../../projects/registry'
+import { runProject } from '../../projects/runner'
 import { AbortError, LLMError, type ChatOptions, type ChatRequest, type ChatResponse, type Provider, type StreamEvent } from '../llm/types'
 import type { WireListener } from '../llm/providers/config'
 import type { HostMessage, SerializedError, WorkerMessage } from './protocol'
@@ -95,6 +97,28 @@ self.onmessage = async (ev: MessageEvent<HostMessage>) => {
         onScenarioEnd: (result) => post({ type: 'scenario-end', result }),
       })
       post({ type: 'done', result })
+    } catch (e) {
+      post({ type: 'fatal', error: { name: (e as Error).name, message: (e as Error).message } })
+    }
+    return
+  }
+  if (m.type === 'run-project') {
+    const project = projectById(m.projectId)
+    if (!project) return post({ type: 'fatal', error: { name: 'Error', message: `未知项目 ${m.projectId}` } })
+    try {
+      const result = await runProject({
+        project,
+        files: m.files,
+        mode: m.mode,
+        taskIds: m.taskIds,
+        trials: m.trials,
+        concurrency: m.concurrency,
+        realProvider: (onWire) => new RemoteProvider(onWire),
+        onTaskStart: (id) => post({ type: 'scenario-start', id }),
+        onEvent: (scenario, event) => post({ type: 'event', scenario, event }),
+        onTaskEnd: (result) => post({ type: 'task-end', result }),
+      })
+      post({ type: 'project-done', result })
     } catch (e) {
       post({ type: 'fatal', error: { name: (e as Error).name, message: (e as Error).message } })
     }

@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { addMonths } from '../src/add'
+
+test('减 1 个月跨年', () => {
+  expect(addMonths({ year: 2024, month: 1, day: 15 }, -1)).toEqual({ year: 2023, month: 12, day: 15 })
+})
+
+test('减月份时月末截断', () => {
+  expect(addMonths({ year: 2024, month: 3, day: 31 }, -1)).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test('减 15 个月', () => {
+  expect(addMonths({ year: 2024, month: 3, day: 10 }, -15)).toEqual({ year: 2022, month: 12, day: 10 })
+})

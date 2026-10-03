@@ -1,6 +1,6 @@
 {
   "app": { "name": "Agent Quest", "tagline": "AI Agent 工程闯关" },
-  "nav": { "map": "关卡地图", "settings": "设置", "graduate": "毕业", "home": "首页" },
+  "nav": { "map": "关卡地图", "settings": "设置", "graduate": "毕业", "projects": "实战项目", "home": "首页" },
   "home": {
     "start": "开始入职",
     "continue": "继续闯关",

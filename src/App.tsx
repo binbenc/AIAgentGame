@@ -4,10 +4,12 @@ import { HashRouter, NavLink, Route, Routes } from 'react-router'
 import { GraduatePage } from './features/graduate/GraduatePage'
 import { HomePage } from './features/home/HomePage'
 import { MapPage } from './features/map/MapPage'
+import { ProjectsPage } from './features/projects/ProjectsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useProgress } from './state/progress'
 
 // 编辑器（Monaco）体积较大，按需加载
+const ProjectPage = lazy(() => import('./features/projects/ProjectPage').then((m) => ({ default: m.ProjectPage })))
 const LevelPage = lazy(() => import('./features/level/LevelPage').then((m) => ({ default: m.LevelPage })))
 
 function Nav() {
@@ -26,6 +28,9 @@ function Nav() {
       </NavLink>
       <NavLink to="/graduate" className={link}>
         {t('nav.graduate')}
+      </NavLink>
+      <NavLink to="/projects" className={link}>
+        {t('nav.projects')}
       </NavLink>
       <div className="flex-1" />
       <NavLink to="/settings" className={link}>
@@ -54,6 +59,8 @@ export function App() {
             <Route path="/level/:id" element={<LevelPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/graduate" element={<GraduatePage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/project/:id" element={<ProjectPage />} />
           </Routes>
           </Suspense>
         </main>

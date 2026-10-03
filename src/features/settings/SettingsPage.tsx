@@ -44,8 +44,8 @@ export function SettingsPage() {
   }
 
   function exportSave() {
-    const { version, files, levels, borrowed } = useProgress.getState()
-    const blob = new Blob([JSON.stringify({ version, files, levels, borrowed }, null, 2)], { type: 'application/json' })
+    const { version, files, levels, borrowed, projects } = useProgress.getState()
+    const blob = new Blob([JSON.stringify({ version, files, levels, borrowed, projects }, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `agent-quest-save-${new Date().toISOString().slice(0, 10)}.json`

@@ -1,0 +1,20 @@
+import { escapeHtml } from './escape'
+
+/** 渲染一行里的行内格式：代码、粗体、斜体 */
+export function renderInline(text: string): string {
+  // 先把行内代码抠出来换成占位符，避免代码里的 * 和 _ 被当成强调
+  const codes: string[] = []
+  let out = text.replace(/`([^`]+)`/g, (_m, code: string) => {
+    codes.push(code)
+    return `\u0000${codes.length - 1}\u0000`
+  })
+
+  out = escapeHtml(out)
+  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  out = out.replace(/(^|[^\w])_([^_]+)_(?!\w)/g, '$1<em>$2</em>')
+  out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>')
+
+  // 把代码放回去（代码内容同样要转义）
+  return out.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => `<code>${escapeHtml(codes[Number(i)])}</code>`)
+}

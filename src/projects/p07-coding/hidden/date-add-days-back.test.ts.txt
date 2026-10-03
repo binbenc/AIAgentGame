@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { addDays } from '../src/add'
+
+test('3 月 1 日减 1 天是 2 月最后一天', () => {
+  expect(addDays({ year: 2024, month: 3, day: 1 }, -1)).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test('元旦减 1 天是上一年 12 月 31 日', () => {
+  expect(addDays({ year: 2024, month: 1, day: 1 }, -1)).toEqual({ year: 2023, month: 12, day: 31 })
+})
+
+test('减去整月的天数', () => {
+  expect(addDays({ year: 2024, month: 3, day: 15 }, -15)).toEqual({ year: 2024, month: 2, day: 29 })
+})

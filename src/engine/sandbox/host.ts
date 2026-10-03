@@ -2,6 +2,7 @@
  * 宿主侧：创建沙箱 Worker、代理真实模型调用（Key 只存在于宿主）、设置总超时。
  */
 import type { RunMode, ScenarioResult, SuiteResult } from '../judge/types'
+import type { ProjectRunResult, TaskRunResult } from '../../projects/types'
 import { AnthropicProvider } from '../llm/providers/anthropic'
 import type { ProviderConfig, WireListener } from '../llm/providers/config'
 import { OpenAIProvider } from '../llm/providers/openai'
@@ -35,12 +36,50 @@ function serialize(e: unknown): SerializedError {
   return { name: err?.name ?? 'Error', message: err?.message ?? String(e), status: err?.status, retryable: err?.retryable }
 }
 
+export interface ProjectSandboxOptions {
+  projectId: string
+  files: Record<string, string>
+  mode: RunMode
+  provider?: ProviderConfig
+  taskIds?: string[]
+  trials?: number
+  concurrency?: number
+  timeoutMs?: number
+  onTaskStart?: (key: string) => void
+  onEvent?: (key: string, e: TraceEvent) => void
+  onTaskEnd?: (r: TaskRunResult) => void
+}
+
+export function runProjectInSandbox(opts: ProjectSandboxOptions): { promise: Promise<ProjectRunResult>; cancel(): void } {
+  return startWorker<ProjectRunResult>(
+    { type: 'run-project', projectId: opts.projectId, files: opts.files, mode: opts.mode, taskIds: opts.taskIds, trials: opts.trials, concurrency: opts.concurrency },
+    { mode: opts.mode, provider: opts.provider, timeoutMs: opts.timeoutMs, onScenarioStart: opts.onTaskStart, onEvent: opts.onEvent, onTaskEnd: opts.onTaskEnd },
+  )
+}
+
 export function runInSandbox(opts: SandboxOptions): SandboxRun {
+  return startWorker<SuiteResult>(
+    { type: 'run', levelId: opts.levelId, files: opts.files, mode: opts.mode, only: opts.only },
+    { mode: opts.mode, provider: opts.provider, timeoutMs: opts.timeoutMs, onScenarioStart: opts.onScenarioStart, onEvent: opts.onEvent, onScenarioEnd: opts.onScenarioEnd },
+  )
+}
+
+interface StartOptions {
+  mode: RunMode
+  provider?: ProviderConfig
+  timeoutMs?: number
+  onScenarioStart?: (id: string) => void
+  onEvent?: (scenario: string, e: TraceEvent) => void
+  onScenarioEnd?: (r: ScenarioResult) => void
+  onTaskEnd?: (r: TaskRunResult) => void
+}
+
+function startWorker<R>(start: HostMessage, opts: StartOptions): { promise: Promise<R>; cancel(): void } {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
   const aborts = new Map<number, AbortController>()
-  let finish: (r: SuiteResult) => void
+  let finish: (r: R) => void
   let fail: (e: Error) => void
-  const promise = new Promise<SuiteResult>((res, rej) => {
+  const promise = new Promise<R>((res, rej) => {
     finish = res
     fail = rej
   })
@@ -95,9 +134,13 @@ export function runInSandbox(opts: SandboxOptions): SandboxRun {
       case 'scenario-end':
         opts.onScenarioEnd?.(m.result)
         break
+      case 'task-end':
+        opts.onTaskEnd?.(m.result)
+        break
       case 'done':
+      case 'project-done':
         stop()
-        finish(m.result)
+        finish(m.result as R)
         break
       case 'fatal':
         stop()
@@ -109,7 +152,7 @@ export function runInSandbox(opts: SandboxOptions): SandboxRun {
     stop()
     fail(new Error(`沙箱错误：${e.message}`))
   }
-  send({ type: 'run', levelId: opts.levelId, files: opts.files, mode: opts.mode, only: opts.only })
+  send(start)
   return {
     promise,
     cancel() {

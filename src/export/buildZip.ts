@@ -7,7 +7,7 @@ import { LEVELS } from '../content/levels'
 import type { LevelProgress } from '../state/progress'
 
 const template = import.meta.glob('./template/**/*', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
-const engine = import.meta.glob(['../engine/**/*.ts', '!../engine/sandbox/worker.ts', '!../engine/sandbox/host.ts', '!../engine/sandbox/protocol.ts'], {
+export const engine = import.meta.glob(['../engine/**/*.ts', '!../engine/sandbox/worker.ts', '!../engine/sandbox/host.ts', '!../engine/sandbox/protocol.ts'], {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -25,6 +25,15 @@ export interface ExportInput {
   levels: Record<string, LevelProgress>
   borrowed: string[]
 }
+
+/** 引擎源码（不含浏览器专用的 Worker / 宿主代码），按导出路径组织 */
+export function engineFiles(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(engine)) out[`aq/engine/${k.replace('../engine/', '')}`] = v
+  return out
+}
+
+export const nodeRuntime = template['./template/aq/node-runtime.ts']
 
 export function exportFileList(input: ExportInput): Record<string, string> {
   const out: Record<string, string> = {}

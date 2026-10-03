@@ -1,0 +1,16 @@
+export interface LineItem {
+  sku: string
+  name: string
+  /** 单价，单位：分 */
+  unitPrice: number
+  quantity: number
+}
+
+export interface Coupon {
+  code: string
+  /** percent：value 是减免的百分比（10 = 九折）；fixed：value 是减免的金额（分） */
+  kind: 'percent' | 'fixed'
+  value: number
+  /** 使用门槛（分），按原价小计判断 */
+  minSpend?: number
+}

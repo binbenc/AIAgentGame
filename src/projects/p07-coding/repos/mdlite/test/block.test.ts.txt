@@ -1,0 +1,19 @@
+import { expect, test } from 'testkit'
+import { renderMarkdown } from '../src/block'
+
+test('标题', () => {
+  expect(renderMarkdown('# Title')).toBe('<h1>Title</h1>')
+  expect(renderMarkdown('## Sub')).toBe('<h2>Sub</h2>')
+})
+
+test('段落', () => {
+  expect(renderMarkdown('hello')).toBe('<p>hello</p>')
+})
+
+test('列表后接段落', () => {
+  expect(renderMarkdown('- a\n- b\n\ntext')).toBe('<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n<p>text</p>')
+})
+
+test('标题里的行内格式', () => {
+  expect(renderMarkdown('# **Big** news')).toBe('<h1><strong>Big</strong> news</h1>')
+})

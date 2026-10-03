@@ -1,0 +1,12 @@
+import type { LineItem } from './types'
+
+/** 购物车小计（分）。数量必须是正整数，单价必须是非负整数（分）。 */
+export function subtotal(items: LineItem[]): number {
+  let sum = 0
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new RangeError(`商品 ${item.sku} 的数量无效：${item.quantity}`)
+    if (!Number.isInteger(item.unitPrice) || item.unitPrice < 0) throw new RangeError(`商品 ${item.sku} 的单价无效：${item.unitPrice}`)
+    sum += item.unitPrice * item.quantity
+  }
+  return sum
+}

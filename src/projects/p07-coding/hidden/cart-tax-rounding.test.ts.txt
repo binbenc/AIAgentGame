@@ -1,0 +1,18 @@
+import { expect, test } from 'testkit'
+import { checkout } from '../src/checkout'
+import { taxFor } from '../src/tax'
+
+test('税额四舍五入到分', () => {
+  expect(taxFor(1999, 0.13)).toBe(260)
+  expect(taxFor(1050, 0.05)).toBe(53)
+})
+
+test('结账：19.99 元、税率 13%', () => {
+  const r = checkout([{ sku: 'MUG', name: '马克杯', unitPrice: 1999, quantity: 1 }], [], 0.13)
+  expect(r.tax).toBe(260)
+  expect(r.total).toBe(2259)
+})
+
+test('不足半分的部分舍去', () => {
+  expect(taxFor(1001, 0.13)).toBe(130)
+})

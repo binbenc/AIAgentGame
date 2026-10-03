@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { escapeHtml } from '../src/escape'
+
+test('转义 &', () => {
+  expect(escapeHtml('Tom & Jerry')).toBe('Tom &amp; Jerry')
+})
+
+test('转义引号', () => {
+  expect(escapeHtml('say "hi"')).toBe('say &quot;hi&quot;')
+})
+
+test('普通文本不变', () => {
+  expect(escapeHtml('hello world')).toBe('hello world')
+})

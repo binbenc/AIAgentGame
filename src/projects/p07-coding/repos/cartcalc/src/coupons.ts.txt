@@ -1,0 +1,29 @@
+import type { Coupon } from './types'
+
+export interface CouponResult {
+  /** 优惠后的金额（分） */
+  total: number
+  /** 实际用上的券 */
+  applied: string[]
+}
+
+/** 计算优惠后的金额（分），规则见 README */
+export function applyCoupons(subtotal: number, coupons: Coupon[]): CouponResult {
+  const applied: string[] = []
+  let total = subtotal
+
+  const percents = coupons.filter((c) => c.kind === 'percent')
+  if (percents.length > 0) {
+    const best = percents.reduce((a, b) => (b.value > a.value ? b : a))
+    total = Math.round((total * (100 - best.value)) / 100)
+    applied.push(best.code)
+  }
+
+  for (const c of coupons) {
+    if (c.kind !== 'fixed') continue
+    if (c.minSpend !== undefined && subtotal < c.minSpend) continue
+    total -= c.value
+    applied.push(c.code)
+  }
+  return { total: Math.max(0, total), applied }
+}

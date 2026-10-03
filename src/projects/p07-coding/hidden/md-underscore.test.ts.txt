@@ -1,0 +1,11 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+
+test('单词内部的下划线不是强调', () => {
+  expect(renderInline('snake_case_name')).toBe('snake_case_name')
+  expect(renderInline('call get_user_by_id()')).toBe('call get_user_by_id()')
+})
+
+test('独立的 _斜体_ 仍然有效', () => {
+  expect(renderInline('use _this_ one')).toBe('use <em>this</em> one')
+})
