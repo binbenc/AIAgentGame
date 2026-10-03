@@ -1,0 +1,53 @@
+# 推送到 main 时：测试 → 构建纯静态产物 → 部署到 GitHub Pages
+# 首次使用：仓库 Settings → Pages → Source 选 "GitHub Actions"
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只保留一次部署；新的推送不取消正在进行的部署，避免发布到一半
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # 引擎 + 关卡 + 实战项目的完整性测试（全部用模拟模型，不需要 API Key）
+      - run: npm test
+
+      # vite.config.ts 里 base 是 './'，路由用 hash，部署在 /<仓库名>/ 子路径下也能直接用
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
