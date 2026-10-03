@@ -6,7 +6,7 @@ Learn AI agent engineering as a game. 20 levels take you from a single model cal
 
 🚀 **Try it online: <https://binbenc.github.io/AIAgentGame/>** (a fully static site — your progress stays in your own browser; it uses a mock model by default, so no API key is needed)
 
-> 🗣️ The in-app UI and level content are currently in Simplified Chinese. The i18n layer is in place for an English version.
+> 🗣️ Available in English (default) and Simplified Chinese — switch with the button in the top bar.
 
 - 💻 **Real code**: write TypeScript in the browser with the Monaco editor; your code runs in a Web Worker sandbox.
 - 💥 **Real failures**: a deterministic mock model stages production incidents as part of the story — rate limits, hallucinated tools, broken JSON, context overflow, prompt injection… — and you fix them yourself.
@@ -38,7 +38,7 @@ Unlocked after you finish the levels (or enable free mode in Settings to try the
 ```bash
 npm install
 npm run dev              # local dev server at http://localhost:5173
-npm test                 # engine + level integrity tests (each reference solution earns 3 stars, starters fail, regression)
+npm test                 # engine + level + project integrity tests, in English and Chinese (each reference solution earns 3 stars, starters fail, regression)
 npm run budgets          # print call / token usage of each level's reference solution, to calibrate star budgets
 npm run verify:export    # export a project built from all reference solutions, then npm install && npm test && tsc in a temp dir
 npm run verify:project-export   # export and verify each project on its own (PROJECT=p05 to verify just one)
@@ -83,7 +83,7 @@ See [docs/LEVEL_AUTHORING.md](docs/LEVEL_AUTHORING.md). `npm test` checks automa
 
 ## 🌍 i18n
 
-UI strings live in `src/i18n/zh.json` (i18next). Level content is Markdown organized per level directory; to add English, add files such as `story.en.md` and give `LevelDef` a language dimension.
+Everything — UI, levels, projects, assertion messages, mock-model replies and starter / reference code — exists in English and Simplified Chinese. The language is chosen once at startup (`src/engine/locale.ts`, `L(zh, en)`), and `npm test` runs the integrity tests in both languages. See [docs/I18N.md](docs/I18N.md) for the conventions.
 
 ## 📄 License
 

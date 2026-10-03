@@ -1,3 +1,4 @@
+import { L } from '../../locale'
 export type ProviderKind = 'anthropic' | 'openai'
 
 export interface ProviderConfig {
@@ -48,7 +49,7 @@ export const PRESETS: Record<string, Omit<ProviderConfig, 'apiKey'> & { label: s
     cors: false,
   },
   qwen: {
-    label: '通义千问 (DashScope 兼容模式)',
+    label: L('通义千问 (DashScope 兼容模式)', 'Qwen (DashScope compatible mode)'),
     kind: 'openai',
     baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     models: { default: 'qwen-plus', fast: 'qwen-turbo' },
@@ -62,7 +63,7 @@ export const PRESETS: Record<string, Omit<ProviderConfig, 'apiKey'> & { label: s
     cors: false,
   },
   ollama: {
-    label: 'Ollama（本地）',
+    label: L('Ollama（本地）', 'Ollama (local)'),
     kind: 'openai',
     baseURL: 'http://127.0.0.1:11434/v1',
     models: { default: 'qwen3:8b', fast: 'qwen3:8b' },

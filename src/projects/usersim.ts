@@ -4,6 +4,7 @@
  */
 import type { Message } from '../engine/llm/types'
 import type { EnvCtx } from './types'
+import { L } from '../engine/locale'
 
 export const STOP = '###STOP###'
 
@@ -31,29 +32,40 @@ export interface SimUser {
   readonly transcript: { role: 'agent' | 'user'; text: string }[]
 }
 
-const USER_SYSTEM = (instruction: string, persona: string) => `你在扮演${persona}。下面是你的人设和目标：
+const USER_SYSTEM = (instruction: string, persona: string) =>
+  L(
+    `你在扮演${persona}。下面是你的人设和目标：
 
 ${instruction}
 
 规则：
 - 每次只说一两句话，像真人一样自然，不要一次把所有信息都说出来；客服问到什么再提供什么。
 - 不要编造人设里没有的信息；被问到不知道的事情就说不知道。
-- 目标达成，或者确认无法达成时，回复的最后加上 ${STOP}。`
+- 目标达成，或者确认无法达成时，回复的最后加上 ${STOP}。`,
+    `You are playing ${persona}. Here is your persona and goal:
+
+${instruction}
+
+Rules:
+- Say only one or two sentences at a time, naturally, like a real person. Don't reveal everything at once; give information when you're asked for it.
+- Don't invent anything that isn't in your persona; if asked something you don't know, say you don't know.
+- When your goal is achieved, or it's clear it can't be, end your reply with ${STOP}.`,
+  )
 
 export function createSimUser(spec: SimUserSpec, ctx: EnvCtx, maxTurns = 30): SimUser {
   const transcript: { role: 'agent' | 'user'; text: string }[] = [{ role: 'user', text: spec.opening }]
   const memory: Record<string, unknown> = {}
   let done = false
   let turn = 0
-  const role = spec.role ?? '客户'
-  ctx.log(`👤 ${role}：${spec.opening}`)
+  const role = spec.role ?? L('客户', 'Customer')
+  ctx.log(`👤 ${role}${L('：', ': ')}${spec.opening}`)
 
   async function reply(agentMessage: string): Promise<string> {
     if (ctx.mode === 'mock' || !ctx.envChat) return spec.script(agentMessage, turn, memory)
     // 真实模式：角色互换——客服说的话对“用户模型”来说是 user 消息
     const messages: Message[] = transcript.map((m) => ({ role: m.role === 'agent' ? 'user' : 'assistant', content: m.text }))
-    if (messages[0]?.role === 'assistant') messages.unshift({ role: 'user', content: '（客服已接入，请开始描述你的问题）' })
-    const res = await ctx.envChat({ system: USER_SYSTEM(spec.instruction, spec.persona ?? '一位正在联系客服的客户'), messages, max_tokens: 1024, model: 'fast' })
+    if (messages[0]?.role === 'assistant') messages.unshift({ role: 'user', content: L('（客服已接入，请开始描述你的问题）', '(An agent has joined the chat. Please describe your issue.)') })
+    const res = await ctx.envChat({ system: USER_SYSTEM(spec.instruction, spec.persona ?? L('一位正在联系客服的客户', 'a customer contacting customer support')), messages, max_tokens: 1024, model: 'fast' })
     return res.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim() || STOP
   }
 
@@ -71,7 +83,7 @@ export function createSimUser(spec: SimUserSpec, ctx: EnvCtx, maxTurns = 30): Si
       turn++
       const text = turn > maxTurns ? STOP : await reply(agentMessage)
       transcript.push({ role: 'user', text })
-      ctx.log(`👤 ${role}：${text}`)
+      ctx.log(`👤 ${role}${L('：', ': ')}${text}`)
       if (text.includes(STOP)) done = true
       return text
     },

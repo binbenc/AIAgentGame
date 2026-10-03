@@ -4,6 +4,7 @@
  * 写操作（createEvent / updateEvent / cancelEvent）会记录到 action log（发生在请求人第几轮发言之后），
  * 判定器据此检查“该问的有没有先问”。
  */
+import { L } from '../../../engine/locale'
 import { createSimUser, type SimUser, type SimUserSpec } from '../../usersim'
 import type { EnvCtx } from '../../types'
 import { ASSISTANT_RULES, EVENTS, NOW, PEOPLE, REQUESTER, ROOMS, type CalEvent, type Person, type Room } from './data'
@@ -62,7 +63,7 @@ const fail = (msg: string): never => {
 const overlaps = (e: CalEvent, s: number, t: number) => Date.parse(e.start) < t && s < Date.parse(e.end)
 
 export function createCalendarEnv(spec: SimUserSpec, ctx: EnvCtx): CalendarEnv {
-  const user = createSimUser({ role: '同事', persona: '一位正在使用公司内部日程助手的同事', ...spec }, ctx)
+  const user = createSimUser({ role: L('同事', 'Colleague'), persona: L('一位正在使用公司内部日程助手的同事', "a colleague using the company's internal scheduling assistant"), ...spec }, ctx)
   const state: CalState = { events: structuredClone(EVENTS), actions: [], user }
   const { events } = state
   const me = REQUESTER.email
@@ -76,13 +77,13 @@ export function createCalendarEnv(spec: SimUserSpec, ctx: EnvCtx): CalendarEnv {
   const knownEmail = (x: unknown): string => {
     const a = String(x ?? '').trim().toLowerCase()
     if (PEOPLE.some((p) => p.email === a) || ROOMS.some((r) => r.id === a)) return a
-    return fail(`找不到“${x}”：参会人要用公司邮箱（先用 listPeople 查），会议室要用 listRooms 返回的 id`)
+    return fail(L(`找不到“${x}”：参会人要用公司邮箱（先用 listPeople 查），会议室要用 listRooms 返回的 id`, `Unknown "${x}": attendees must be company emails (look them up with listPeople first), rooms must be ids from listRooms`))
   }
   const range = (a: string, b: string) => {
     const s = parseTime(a)
     const t = parseTime(b)
-    if (t <= s) fail('rangeEnd 必须晚于 rangeStart')
-    if (t - s > 62 * 86_400_000) fail('时间范围不能超过 62 天')
+    if (t <= s) fail(L('rangeEnd 必须晚于 rangeStart', 'rangeEnd must be after rangeStart'))
+    if (t - s > 62 * 86_400_000) fail(L('时间范围不能超过 62 天', 'The range cannot exceed 62 days'))
     return [s, t] as const
   }
   const turnNow = () => user.transcript.filter((m) => m.role === 'user').length - 1
@@ -90,29 +91,29 @@ export function createCalendarEnv(spec: SimUserSpec, ctx: EnvCtx): CalendarEnv {
   const record = (a: Omit<ActionRecord, 'turn' | 'userText'>) => state.actions.push({ ...a, turn: turnNow(), userText: lastUser() })
 
   function people(list: unknown): string[] {
-    if (!Array.isArray(list) || !list.length) fail('attendees 必须是非空的邮箱数组')
+    if (!Array.isArray(list) || !list.length) fail(L('attendees 必须是非空的邮箱数组', 'attendees must be a non-empty array of emails'))
     const out = [...new Set((list as unknown[]).map(knownEmail))]
     const rooms = out.filter((x) => ROOMS.some((r) => r.id === x))
-    if (rooms.length) fail(`会议室 ${rooms.join('、')} 不能放在 attendees 里，请用 room 参数`)
+    if (rooms.length) fail(L(`会议室 ${rooms.join('、')} 不能放在 attendees 里，请用 room 参数`, `Rooms (${rooms.join(', ')}) don't go in attendees; use the room parameter`))
     return out
   }
   function roomOf(x: unknown): string | null {
     if (x === undefined || x === null || x === '') return null
     const id = String(x).trim().toLowerCase()
     const hit = ROOMS.find((r) => r.id === id || r.name.toLowerCase() === id)
-    return hit ? hit.id : fail(`会议室“${x}”不存在，请用 listRooms 返回的 id`)
+    return hit ? hit.id : fail(L(`会议室“${x}”不存在，请用 listRooms 返回的 id`, `Room "${x}" doesn't exist; use an id from listRooms`))
   }
   function times(start: unknown, end: unknown) {
     const s = parseTime(start)
     const t = parseTime(end)
-    if (t <= s) fail('结束时间必须晚于开始时间')
-    if (t - s > 8 * 3_600_000) fail('单个会议不能超过 8 小时')
+    if (t <= s) fail(L('结束时间必须晚于开始时间', 'end must be after start'))
+    if (t - s > 8 * 3_600_000) fail(L('单个会议不能超过 8 小时', 'A meeting cannot be longer than 8 hours'))
     return { start: isoZ(s), end: isoZ(t) }
   }
   function own(id: unknown): CalEvent {
-    const ev = events.find((x) => x.id === String(id ?? '').trim()) ?? fail(`会议 ${id} 不存在`)
-    if (ev.status === 'cancelled') fail(`会议 ${ev.id} 已经取消了`)
-    if (ev.organizer !== me) fail(`只有组织者（${ev.organizer}）可以修改或取消会议“${ev.title}”，请让请求人联系组织者`)
+    const ev = events.find((x) => x.id === String(id ?? '').trim()) ?? fail(L(`会议 ${id} 不存在`, `Meeting ${id} doesn't exist`))
+    if (ev.status === 'cancelled') fail(L(`会议 ${ev.id} 已经取消了`, `Meeting ${ev.id} is already cancelled`))
+    if (ev.organizer !== me) fail(L(`只有组织者（${ev.organizer}）可以修改或取消会议“${ev.title}”，请让请求人联系组织者`, `Only the organizer (${ev.organizer}) can modify or cancel "${ev.title}"; ask the requester to contact the organizer`))
     return ev
   }
 
@@ -131,7 +132,7 @@ export function createCalendarEnv(spec: SimUserSpec, ctx: EnvCtx): CalendarEnv {
     }),
     getAvailability: api('getAvailability', 80, (emails: string[], rangeStart: string, rangeEnd: string) => {
       const [s, t] = range(rangeStart, rangeEnd)
-      if (!Array.isArray(emails) || !emails.length) fail('emails 必须是非空数组')
+      if (!Array.isArray(emails) || !emails.length) fail(L('emails 必须是非空数组', 'emails must be a non-empty array'))
       return emails.map((x) => {
         const id = knownEmail(x)
         const busy = events
@@ -152,7 +153,7 @@ export function createCalendarEnv(spec: SimUserSpec, ctx: EnvCtx): CalendarEnv {
     }),
     createEvent: api('createEvent', 120, (input: { title: string; start: string; end: string; attendees: string[]; room?: string }) => {
       const i = input ?? ({} as typeof input)
-      const ev: CalEvent = { id: `evt-new-${state.actions.length + 1}`, title: String(i.title || '会议'), ...times(i.start, i.end), organizer: me, attendees: people(i.attendees), room: roomOf(i.room), status: 'confirmed' }
+      const ev: CalEvent = { id: `evt-new-${state.actions.length + 1}`, title: String(i.title || L('会议', 'Meeting')), ...times(i.start, i.end), organizer: me, attendees: people(i.attendees), room: roomOf(i.room), status: 'confirmed' }
       events.push(ev)
       record({ op: 'create', eventId: ev.id, args: structuredClone(i) })
       return structuredClone(ev)

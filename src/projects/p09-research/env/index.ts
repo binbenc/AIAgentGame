@@ -5,6 +5,7 @@
  * 每次调用都经过 ctx.traced（记录到 trace）和 ctx.delay（模拟网络延迟）。
  * 环境会记下玩家真正打开过哪些网页：判定器要求“引用的网页必须读过”。
  */
+import { L } from '../../../engine/locale'
 import type { EnvCtx } from '../../types'
 import { PAGES, type SourceType, type WebPageData } from './pages'
 
@@ -52,7 +53,7 @@ export const pageOf = (url: string): WebPageData | undefined => BY_URL.get(normU
 
 // —————————— 检索：二元组 BM25 ——————————
 
-export function tokenize(text: string): string[] {
+function tokenizeZh(text: string): string[] {
   const out: string[] = []
   for (const [run] of text.toLowerCase().matchAll(/[a-z0-9.+%-]+|[一-鿿]+/g)) {
     if (/^[a-z0-9]/.test(run) || run.length === 1) out.push(run)
@@ -60,6 +61,20 @@ export function tokenize(text: string): string[] {
   }
   return out
 }
+
+// English: words (hyphens split), minus stop words, with a light plural / possessive fold ("founders" → "founder", "Xingheng's" → "xingheng")
+const STOP = new Set(
+  'a an the of in on at to for from by with and or is are was were be been it its this that these those what which who whom whose how when where why did does do has have had as about into than then there their they he she his her you your we our can could would should will much many any some'.split(' '),
+)
+const stem = (w: string) => (w.length > 3 && /[^su]s$/.test(w) ? w.slice(0, -1) : w)
+
+function tokenizeEn(text: string): string[] {
+  const out: string[] = []
+  for (const [run] of text.toLowerCase().replace(/[’']s\b/g, '').matchAll(/[a-z0-9]+(?:[.+][a-z0-9]+)*%?/g)) if (!STOP.has(run)) out.push(stem(run))
+  return out
+}
+
+export const tokenize: (text: string) => string[] = L(tokenizeZh, tokenizeEn)
 
 interface Indexed {
   page: WebPageData
@@ -100,15 +115,20 @@ export function searchPages(query: string, k = 5): SearchHit[] {
     .map(({ d: { page } }) => ({ url: page.url, title: page.title, snippet: page.summary, date: page.date, sourceType: page.sourceType, site: page.site }))
 }
 
-const NAV: Record<string, string> = {
+const NAV: Record<string, string> = L({
   official: '首页 | 关于我们 | 产品与服务 | 新闻中心 | 投资者关系 | 加入我们 | 联系我们',
   news: '首页 | 要闻 | 产业 | 公司 | 人物 | 财经 | 科技 | 视频 | 专题 | 登录 / 注册',
   blog: '首页 | 评测 | 观点 | 深度 | 访谈 | 工具箱 | 订阅 | 关于本站',
   forum: '论坛首页 › 版块列表 › 行业讨论 | 发帖 | 搜索 | 消息 | 登录',
-}
+}, {
+  official: 'Home | About Us | Products & Services | Newsroom | Investor Relations | Careers | Contact',
+  news: 'Home | Top Stories | Industry | Companies | People | Finance | Tech | Video | Features | Log in / Sign up',
+  blog: 'Home | Reviews | Opinion | Deep Dives | Interviews | Toolbox | Subscribe | About',
+  forum: 'Forum Home › Boards › Industry Talk | New Post | Search | Messages | Log in',
+})
 
 /** 真实网页不只有正文：导航、相关阅读、页脚、版权声明……这些噪音也会占用上下文 */
-function render(page: WebPageData): string {
+function renderZh(page: WebPageData): string {
   const related = PAGES.filter((x) => x.site === page.site && x.url !== page.url).slice(0, 4)
   return [
     `${page.site}  ${NAV[page.sourceType]}`,
@@ -122,6 +142,22 @@ function render(page: WebPageData): string {
     .join('\n\n')
 }
 
+function renderEn(page: WebPageData): string {
+  const related = PAGES.filter((x) => x.site === page.site && x.url !== page.url).slice(0, 4)
+  return [
+    `${page.site}  ${NAV[page.sourceType]}`,
+    `You are here: Home › ${page.title}`,
+    page.text,
+    related.length ? `Related:\n${related.map((x) => `· ${x.title} (${x.date})`).join('\n')}` : '',
+    `Share: WeChat | Weibo | Copy link      Comments (0)  Save  Report`,
+    `Copyright © ${page.site}. All rights reserved. No reproduction without permission. Some content on this site comes from the internet; contact us for removal if it infringes your rights.  ICP No. 2016${page.url.length}88  Hotline 400-800-${page.url.length}00  Report illegal content`,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+const render = L(renderZh, renderEn)
+
 export function createWebEnv(ctx: EnvCtx): WebEnv {
   const state: WebState = { fetched: new Set() }
   const env: WebEnv = {
@@ -132,7 +168,7 @@ export function createWebEnv(ctx: EnvCtx): WebEnv {
     fetch: ctx.traced('fetch', async (url: string) => {
       await ctx.delay(500)
       const page = pageOf(String(url ?? ''))
-      if (!page) throw new Error(`404：网页不存在（${url}）。只能打开搜索结果里出现过的网址。`)
+      if (!page) throw new Error(L(`404：网页不存在（${url}）。只能打开搜索结果里出现过的网址。`, `404: page not found (${url}). Only URLs that appeared in search results can be opened.`))
       state.fetched.add(page.url)
       const { url: u, title, date, sourceType, site } = page
       return { url: u, title, date, sourceType, site, text: render(page) }

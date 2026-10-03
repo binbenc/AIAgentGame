@@ -2,11 +2,15 @@ import type { RunMode } from '../engine/judge/types'
 import type { MockModel } from '../engine/llm/providers/mock'
 import type { ChatRequest, ChatResponse } from '../engine/llm/types'
 import type { Trace, TraceEvent } from '../engine/trace'
+import { L } from '../engine/locale'
 
 /** 1 入门 · 2 进阶 · 3 高级 · 4 专家 */
 export type Tier = 1 | 2 | 3 | 4
 
-export const TIER_NAMES: Record<Tier, string> = { 1: '入门', 2: '进阶', 3: '高级', 4: '专家' }
+export const TIER_NAMES: Record<Tier, string> = L(
+  { 1: '入门', 2: '进阶', 3: '高级', 4: '专家' },
+  { 1: 'Beginner', 2: 'Intermediate', 3: 'Advanced', 4: 'Expert' },
+)
 
 export interface CheckResult {
   pass: boolean

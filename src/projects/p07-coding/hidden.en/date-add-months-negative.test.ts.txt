@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { addMonths } from '../src/add'
+
+test('minus 1 month across a year', () => {
+  expect(addMonths({ year: 2024, month: 1, day: 15 }, -1)).toEqual({ year: 2023, month: 12, day: 15 })
+})
+
+test('minus months clamps to end of month', () => {
+  expect(addMonths({ year: 2024, month: 3, day: 31 }, -1)).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test('minus 15 months', () => {
+  expect(addMonths({ year: 2024, month: 3, day: 10 }, -15)).toEqual({ year: 2022, month: 12, day: 10 })
+})

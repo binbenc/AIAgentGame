@@ -5,6 +5,7 @@
  * - 缺失 / 无效值不参与计算（空值、'N/A'、超出 0–10 的评分）；
  * - 地区、平台、城市的不同写法合并成标准写法；数字去掉千分位逗号。
  */
+import { L } from '../../engine/locale'
 import { datasets } from './env/data'
 import { parseCsv } from './env/sandbox'
 
@@ -39,10 +40,16 @@ export function num(s: string | undefined): number | null {
   return Number.isFinite(v) ? v : null
 }
 
-const REGION: Record<string, string> = { east: '华东', 华东区: '华东', south: '华南', 华南区: '华南', north: '华北', 华北区: '华北', 西南区: '西南' }
+const REGION = L<Record<string, string>>(
+  { east: '华东', 华东区: '华东', south: '华南', 华南区: '华南', north: '华北', 华北区: '华北', 西南区: '西南' },
+  { east: 'East', 'east region': 'East', south: 'South', 'south region': 'South', north: 'North', 'north region': 'North', southwest: 'Southwest', 'southwest region': 'Southwest' },
+)
 export const region = (s: string) => REGION[s.trim().toLowerCase()] ?? REGION[s.trim()] ?? s.trim()
 export const platform = (s: string) => (/^ios$/i.test(s.trim()) ? 'iOS' : /^android$/i.test(s.trim()) ? 'Android' : s.trim())
-const CITY: Record<string, string> = { 上海市: '上海', shanghai: '上海', 北京市: '北京', beijing: '北京' }
+const CITY = L<Record<string, string>>(
+  { 上海市: '上海', shanghai: '上海', 北京市: '北京', beijing: '北京' },
+  { shanghai: 'Shanghai', 'shanghai city': 'Shanghai', beijing: 'Beijing', 'beijing city': 'Beijing' },
+)
 export const city = (s: string) => CITY[s.trim().toLowerCase()] ?? CITY[s.trim()] ?? s.trim()
 
 function uniqBy<T>(rows: T[], key: (r: T) => string): T[] {

@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { escapeHtml } from '../src/escape'
+import { renderMarkdown } from '../src/block'
+
+test('escapes < and >', () => {
+  expect(escapeHtml('a < b > c')).toBe('a &lt; b &gt; c')
+})
+
+test('mixed input is escaped exactly once', () => {
+  expect(escapeHtml('<a href="x">&</a>')).toBe('&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;')
+})
+
+test('less-than sign in a heading', () => {
+  expect(renderMarkdown('# a < b')).toBe('<h1>a &lt; b</h1>')
+})

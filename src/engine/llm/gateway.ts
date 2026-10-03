@@ -3,6 +3,7 @@ import type { Trace } from '../trace'
 import { StreamAccumulator } from './stream'
 import { validateRequest } from './validate'
 import { AbortError, LLMError, type ChatOptions, type ChatRequest, type ChatResponse, type Provider, type StreamEvent } from './types'
+import { L } from '../locale'
 
 export interface GatewayLimits {
   /** 单个场景内允许的最大 LLM 调用次数，防止死循环烧钱 */
@@ -33,11 +34,18 @@ export class Gateway {
   }
 
   private admit(req: ChatRequest): ChatRequest {
-    if (this.closed) throw new LLMError('本场景已经结束：检测到场景结束后仍在调用模型的后台任务（是不是有 Promise 没有 await？）', 0, false)
+    if (this.closed) throw new LLMError(
+        L('本场景已经结束：检测到场景结束后仍在调用模型的后台任务（是不是有 Promise 没有 await？）', 'This scenario has already ended: a background task is still calling the model after it finished (a Promise you forgot to await?)'),
+        0,
+        false,
+      )
     const snapshot = structuredClone(req)
     validateRequest(snapshot)
     if (++this.calls > this.limits.maxCalls)
-      throw new LLMError(`已超过本场景的 LLM 调用上限（${this.limits.maxCalls} 次）。是不是 Agent 陷入了死循环？`, 429, false)
+      throw new LLMError(L(
+          `已超过本场景的 LLM 调用上限（${this.limits.maxCalls} 次）。是不是 Agent 陷入了死循环？`,
+          `Exceeded this scenario's LLM call limit (${this.limits.maxCalls} calls). Is the agent stuck in a loop?`,
+        ), 429, false)
     this.lastWire = undefined
     return snapshot
   }
@@ -87,7 +95,7 @@ export class Gateway {
         streamed: true,
         request: snapshot,
         response: partial.content.length ? partial : undefined,
-        error: e instanceof AbortError ? '已取消（AbortError）' : (e as Error).message,
+        error: e instanceof AbortError ? L('已取消（AbortError）', 'Cancelled (AbortError)') : (e as Error).message,
         wire: this.lastWire,
       })
       throw e
@@ -102,7 +110,7 @@ export class Gateway {
           streamed: true,
           request: snapshot,
           response: partial.content.length ? partial : undefined,
-          error: '调用方提前结束了流（未传 signal 取消，底层请求可能仍在继续）',
+          error: L('调用方提前结束了流（未传 signal 取消，底层请求可能仍在继续）', 'The caller stopped reading the stream early (no signal was used to cancel, so the underlying request may still be running)'),
           wire: this.lastWire,
         })
       }

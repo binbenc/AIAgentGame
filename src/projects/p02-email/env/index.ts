@@ -3,6 +3,7 @@
  * 环境提供的是“原始 API”，怎么包装成给模型用的工具、要不要给模型，由玩家决定。
  * 写操作（label / createDraft / forward / scheduleMeeting）都会记录下来，判定器据此检查结果。
  */
+import { L } from '../../../engine/locale'
 import type { EnvCtx } from '../../types'
 import { CONTACTS, EVENTS, LABELS, ME, NOW, RULES, WORK_END, WORK_START, type CalEvent, type Contact, type Email, type Label, type Profile } from './data'
 
@@ -93,11 +94,12 @@ export function freeOf(events: CalEvent[], date: string, minutes = 30): [number,
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const badDate = (date: unknown) => L(`date 的格式应为 YYYY-MM-DD（北京时间），收到的是“${date}”`, `date must be YYYY-MM-DD (Beijing time), got "${date}"`)
 
 export function createMailEnv(email: Email, thread: Email[], ctx: EnvCtx): MailEnv {
   const inbox = [...thread.filter((m) => m.id !== email.id), email].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
   const state: MailState = { email, inbox, events: structuredClone(EVENTS), labels: [], drafts: [], forwards: [], meetings: [] }
-  const known = (id: unknown) => (typeof id === 'string' && inbox.some((m) => m.id === id) ? id : fail(`邮件 ${String(id)} 不存在（当前邮件的 id 是 ${email.id}）`))
+  const known = (id: unknown) => (typeof id === 'string' && inbox.some((m) => m.id === id) ? id : fail(L(`邮件 ${String(id)} 不存在（当前邮件的 id 是 ${email.id}）`, `Email ${String(id)} does not exist (the current email's id is ${email.id})`)))
   const api = <A extends unknown[], R>(name: string, ms: number, fn: (...a: A) => R) =>
     ctx.traced(name, async (...a: A) => {
       await ctx.delay(ms)
@@ -127,38 +129,43 @@ export function createMailEnv(email: Email, thread: Email[], ctx: EnvCtx): MailE
     },
     calendar: {
       listEvents: api('calendar.listEvents', 50, (date: string) => {
-        if (!DATE_RE.test(String(date))) fail(`date 的格式应为 YYYY-MM-DD（北京时间），收到的是“${date}”`)
+        if (!DATE_RE.test(String(date))) fail(badDate(date))
         return structuredClone(state.events.filter((e) => bj(e.start).date === date))
       }),
       freeSlots: api('calendar.freeSlots', 50, (date: string, minutes?: number) => {
-        if (!DATE_RE.test(String(date))) fail(`date 的格式应为 YYYY-MM-DD（北京时间），收到的是“${date}”`)
+        if (!DATE_RE.test(String(date))) fail(badDate(date))
         const m = Number(minutes) > 0 ? Number(minutes) : 30
         return freeOf(state.events, date, m).map(([s, e]) => ({ start: iso(date, s), end: iso(date, e) }))
       }),
     },
     label: api('label', 30, (emailId: string, label: Label) => {
       known(emailId)
-      if (!LABELS.includes(label)) fail(`标签只能是 ${LABELS.join(' / ')}，收到的是“${label}”`)
+      if (!LABELS.includes(label)) fail(L(`标签只能是 ${LABELS.join(' / ')}，收到的是“${label}”`, `label must be one of ${LABELS.join(' / ')}, got "${label}"`))
       state.labels.push({ emailId, label })
     }),
     createDraft: api('createDraft', 60, (emailId: string, body: string) => {
       known(emailId)
-      if (typeof body !== 'string' || !body.trim()) fail('草稿正文不能为空')
+      if (typeof body !== 'string' || !body.trim()) fail(L('草稿正文不能为空', 'Draft body must not be empty'))
       state.drafts.push({ emailId, body })
       return { draftId: `draft-${state.drafts.length}` }
     }),
     forward: api('forward', 60, (emailId: string, to: string, note?: string) => {
       known(emailId)
-      if (typeof to !== 'string' || !/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(to.trim())) fail(`收件人邮箱格式不对：“${to}”`)
+      if (typeof to !== 'string' || !/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(to.trim())) fail(L(`收件人邮箱格式不对：“${to}”`, `Invalid recipient email address: "${to}"`))
       state.forwards.push({ emailId, to: to.trim().toLowerCase(), note })
     }),
     scheduleMeeting: api('scheduleMeeting', 80, (m: { title: string; start: string; end: string; attendees: string[] }) => {
       const { title, start, end, attendees } = m ?? ({} as typeof m)
       if (typeof start !== 'string' || typeof end !== 'string' || !HAS_ZONE.test(start) || !HAS_ZONE.test(end))
-        fail(`start / end 必须是带时区的 ISO 8601（例如 2026-10-15T16:30:00+08:00），收到的是 ${JSON.stringify({ start, end })}`)
-      if (Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)) || Date.parse(end) <= Date.parse(start)) fail('start / end 无效，或者结束时间不晚于开始时间')
-      if (!Array.isArray(attendees) || !attendees.length) fail('attendees 必须是非空的邮箱数组')
-      const event: CalEvent = { id: `e-new-${state.meetings.length + 1}`, title: String(title ?? '会议'), start, end, attendees: [ME.email, ...attendees.map((a) => String(a).trim().toLowerCase())] }
+        fail(
+          L(
+            `start / end 必须是带时区的 ISO 8601（例如 2026-10-15T16:30:00+08:00），收到的是 ${JSON.stringify({ start, end })}`,
+            `start / end must be ISO 8601 with a time zone (e.g. 2026-10-15T16:30:00+08:00), got ${JSON.stringify({ start, end })}`,
+          ),
+        )
+      if (Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)) || Date.parse(end) <= Date.parse(start)) fail(L('start / end 无效，或者结束时间不晚于开始时间', 'Invalid start / end, or end is not after start'))
+      if (!Array.isArray(attendees) || !attendees.length) fail(L('attendees 必须是非空的邮箱数组', 'attendees must be a non-empty array of email addresses'))
+      const event: CalEvent = { id: `e-new-${state.meetings.length + 1}`, title: String(title ?? L('会议', 'Meeting')), start, end, attendees: [ME.email, ...attendees.map((a) => String(a).trim().toLowerCase())] }
       state.meetings.push(event)
       state.events.push(event)
       return structuredClone(event)

@@ -3,7 +3,8 @@
  * 和 TravelPlanner 一样，环境只提供“查询”，计划由玩家的 Agent 组装，判定器用同一份数据库独立核算。
  */
 import type { EnvCtx } from '../../types'
-import { ATTRACTIONS, CITIES, HOTELS, RESTAURANTS, transportsOn, type Attraction, type Hotel, type Restaurant, type Transport } from './data'
+import { L } from '../../../engine/locale'
+import { ATTRACTIONS, CITIES, cityKey, HOTELS, RESTAURANTS, transportsOn, type Attraction, type Hotel, type Restaurant, type Transport } from './data'
 
 export interface TravelEnv {
   /** 产品库覆盖的城市 */
@@ -18,7 +19,19 @@ export interface TravelEnv {
   searchAttractions(city: string): Promise<Attraction[]>
 }
 
-const norm = (s: unknown) => String(s ?? '').trim().replace(/市$/, '')
+const norm = L(
+  (s: unknown) => String(s ?? '').trim().replace(/市$/, ''),
+  // English: accept "Xian", "xi'an", "Chengdu City"…, return the canonical name
+  (s: unknown) => {
+    const raw = String(s ?? '').trim()
+    return CITIES.find((c) => cityKey(c) === cityKey(raw)) ?? raw
+  },
+)
+/** 菜系过滤：英文忽略大小写，并去掉 "food" / "cuisine" 之类的后缀 */
+const cuisineMatch = L(
+  (have: string, want: string) => have.includes(want),
+  (have: string, want: string) => have.toLowerCase().includes(want.toLowerCase().replace(/\s+(food|cuisine)$/, '')),
+)
 const byRating = <T extends { rating: number }>(xs: T[]) => [...xs].sort((a, b) => b.rating - a.rating)
 
 export function createTravelEnv(ctx: EnvCtx): TravelEnv {
@@ -31,7 +44,7 @@ export function createTravelEnv(ctx: EnvCtx): TravelEnv {
     searchTransport: ctx.traced('searchTransport', (from: string, to: string, date: string) => io(transportsOn(norm(from), norm(to), String(date ?? '').trim()))),
     searchHotels: ctx.traced('searchHotels', (city: string) => io(byRating(HOTELS.filter((h) => h.city === norm(city))))),
     searchRestaurants: ctx.traced('searchRestaurants', (city: string, cuisine?: string) =>
-      io(byRating(RESTAURANTS.filter((r) => r.city === norm(city) && (!cuisine || r.cuisine.includes(String(cuisine).trim()))))),
+      io(byRating(RESTAURANTS.filter((r) => r.city === norm(city) && (!cuisine || cuisineMatch(r.cuisine, String(cuisine).trim()))))),
     ),
     searchAttractions: ctx.traced('searchAttractions', (city: string) => io(byRating(ATTRACTIONS.filter((a) => a.city === norm(city))))),
   }

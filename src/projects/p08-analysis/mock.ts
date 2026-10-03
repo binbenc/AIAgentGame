@@ -10,6 +10,7 @@
  *   如果你要求它写代码，它就回复一个 ```ts 代码块，等你把运行结果发回来；否则它直接估一个数。
  * - 它写的代码最后都会打印一行 `ANSWER: 值`，回答的第一行是“答案：值”。
  */
+import { L } from '../../engine/locale'
 import { callTool, say } from '../../engine/llm/mock-kit'
 import type { MockContext, MockModel } from '../../engine/llm/providers/mock'
 import { blocksOf, type ChatRequest, type ToolSpec, type ToolUseBlock } from '../../engine/llm/types'
@@ -38,24 +39,55 @@ const COLUMNS: Record<MockSpec['dataset'], string[]> = {
 
 /** 什么样的文字算“看到了某种脏数据” */
 const EVIDENCE = {
-  comma: /["']\d{1,3}(,\d{3})+(\.\d+)?["']|千分位/,
-  missing: /(空值|缺失|missing|空白|empty)\D{0,6}[1-9]|N\/A/i,
+  comma: /["']\d{1,3}(,\d{3})+(\.\d+)?["']|千分位|thousands?[- ]separators?/i,
+  missing: /(空值|缺失|missing|空白|empty|blank|null)\D{0,6}[1-9]|N\/A/i,
   dup: /(重复|duplicat\w*)\D{0,6}[1-9]/i,
-  region: /(^|[^A-Za-z])(east|East|south|South)([^A-Za-z]|$)|华东区|华南区/,
+  // The canonical region names differ by locale (华东 vs East), so the messy spellings that count as evidence do too
+  region: L(/(^|[^A-Za-z])(east|East|south|South)([^A-Za-z]|$)|华东区|华南区/, /(^|[^A-Za-z])(east|EAST|south|SOUTH)([^A-Za-z]|$)|East Region|South Region|华东区|华南区/),
   platform: /(^|[^A-Za-z])(ios|IOS|android)([^A-Za-z]|$)/,
 }
 type Flags = Record<keyof typeof EVIDENCE, boolean>
 
 /** 被要求检查数据质量时，它会先探查数据 */
-const QUALITY = /数据质量|清洗|脏数据|缺失|重复|不一致|异常值|探查|profil|data quality|clean/i
-const PROFILE_MARK = '// 数据质量检查'
-const PEEK_MARK = '// 看看数据长什么样'
+const QUALITY = /数据质量|清洗|脏数据|缺失|重复|不一致|异常值|探查|profil|data quality|clean|dirty|duplicat|missing|inconsisten|outlier/i
+const PROFILE_MARK = L('// 数据质量检查', '// Data quality check')
+const PEEK_MARK = L('// 看看数据长什么样', '// Look at what the data looks like')
 
 const wordIn = (text: string, w: string) => new RegExp(`(^|[^A-Za-z0-9_])${w}([^A-Za-z0-9_]|$)`).test(text)
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim()
 const codeBlock = (code: string) => `\`\`\`ts\n${code}\n\`\`\``
 
 function profileCode(ds: string): string {
+  return L(profileCodeZh(ds), profileCodeEn(ds))
+}
+
+function profileCodeEn(ds: string): string {
+  return `import { load } from 'data'
+
+${PROFILE_MARK}: row count, duplicate rows, empty values per column, category values, number formats
+const rows = load('${ds}')
+const seen = new Set<string>()
+let dup = 0
+for (const r of rows) {
+  const k = JSON.stringify(r)
+  if (seen.has(k)) dup++
+  else seen.add(k)
+}
+console.log(\`${ds}: \${rows.length} rows, exact duplicates: \${dup}\`)
+for (const c of Object.keys(rows[0] ?? {})) {
+  const vals = rows.map((r) => r[c])
+  const empty = vals.filter((v) => v.trim() === '' || /^n\\/?a$/i.test(v.trim())).length
+  const counts = new Map<string, number>()
+  for (const v of vals) counts.set(v, (counts.get(v) ?? 0) + 1)
+  const withCommas = vals.filter((v) => /^\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(v.trim()))
+  let line = \`- \${c}: empty \${empty}, distinct values \${counts.size}\`
+  if (counts.size <= 12) line += \`: \${[...counts].map(([v, n]) => \`"\${v}"×\${n}\`).join(' ')}\`
+  if (withCommas.length) line += \`; numbers with thousands separators: \${withCommas.length}, e.g. "\${withCommas[0]}"\`
+  console.log(line)
+}`
+}
+
+function profileCodeZh(ds: string): string {
   return `import { load } from 'data'
 
 ${PROFILE_MARK}：行数、重复行、每列的空值、类别取值、数字格式
@@ -85,7 +117,7 @@ const peekCode = (ds: string) => `import { load } from 'data'
 
 ${PEEK_MARK}
 const rows = load('${ds}')
-console.log(rows.length, '行，前 5 行：')
+console.log(rows.length, ${L("'行，前 5 行：'", "'rows, first 5:'")})
 console.log(rows.slice(0, 5))`
 
 /** 分析代码：清洗工具的写法取决于它看到了哪些脏数据 */
@@ -99,8 +131,8 @@ export function analysisCode(spec: MockSpec, f: Flags, slip: boolean): string {
     else
       lines.push(
         'const num = (s: string): number | null => {',
-        `  const t = String(s ?? '').trim()${f.comma ? ".replace(/,/g, '') // 去掉千分位逗号" : ''}`,
-        ...(f.missing ? ["  if (t === '' || /^n\\/?a$/i.test(t)) return null // 缺失值不参与计算"] : []),
+        `  const t = String(s ?? '').trim()${f.comma ? `.replace(/,/g, '') // ${L('去掉千分位逗号', 'strip thousands separators')}` : ''}`,
+        ...(f.missing ? [`  if (t === '' || /^n\\/?a$/i.test(t)) return null // ${L('缺失值不参与计算', 'missing values are excluded')}`] : []),
         '  const v = parseFloat(t)',
         `  return Number.isFinite(v) ? v : ${f.missing ? 'null' : '0'}`,
         '}',
@@ -108,7 +140,10 @@ export function analysisCode(spec: MockSpec, f: Flags, slip: boolean): string {
   }
   if (h.has('region') && f.region)
     lines.push(
-      "const REGION: Record<string, string> = { east: '华东', 华东区: '华东', south: '华南', 华南区: '华南', north: '华北', 华北区: '华北', 西南区: '西南' }",
+      L(
+        "const REGION: Record<string, string> = { east: '华东', 华东区: '华东', south: '华南', 华南区: '华南', north: '华北', 华北区: '华北', 西南区: '西南' }",
+        "const REGION: Record<string, string> = { east: 'East', 'east region': 'East', south: 'South', 'south region': 'South', north: 'North', 'north region': 'North', 'southwest region': 'Southwest' }",
+      ),
       'const region = (s: string) => REGION[s.trim().toLowerCase()] ?? REGION[s.trim()] ?? s.trim()',
     )
   else body = body.replace(/region\((r\.region)\)/g, '$1')
@@ -116,7 +151,7 @@ export function analysisCode(spec: MockSpec, f: Flags, slip: boolean): string {
   else body = body.replace(/platform\((r\.platform)\)/g, '$1')
   if (h.has('uniq') && f.dup)
     lines.push(
-      '// 重复记录只算一次',
+      L('// 重复记录只算一次', '// count duplicate records once'),
       'function uniq<T>(rows: T[], key: (r: T) => string = (r) => JSON.stringify(r)): T[] {',
       '  const seen = new Set<string>()',
       '  return rows.filter((r) => (seen.has(key(r)) ? false : (seen.add(key(r)), true)))',
@@ -169,7 +204,7 @@ const isError = (output: string) => /(^|\n)\s*错误：|Error:/.test(output)
 
 export const mock: MockModel = (req, ctx) => {
   const def = ANALYSIS_TASKS.find((d) => d.id === ctx.scenario.split('#')[0])
-  if (!def?.mock) return say('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）')
+  if (!def?.mock) return say(L('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）', '(The mock model only handles core tasks; run the full set as a benchmark with a real model)'))
   return new Session(def.mock, req, ctx).next()
 }
 
@@ -199,8 +234,8 @@ class Session {
   private flags = (): Flags => Object.fromEntries(Object.entries(EVIDENCE).map(([k, re]) => [k, re.test(this.env)])) as Flags
   private slipFixed = () => !!this.spec.slip && this.env.includes(this.spec.slip.error)
   private code = () => analysisCode(this.spec, this.flags(), !!this.spec.slip && !this.slipFixed())
-  private estimate = () => say(`我没法直接计算，根据经验粗略估计：${this.spec.estimate}。`)
-  private final = (output: string) => say(`答案：${answerIn(output)}\n\n说明：用代码${this.spec.explain}。`)
+  private estimate = () => say(L(`我没法直接计算，根据经验粗略估计：${this.spec.estimate}。`, `I can't compute this directly; a rough estimate from experience: ${this.spec.estimate}.`))
+  private final = (output: string) => say(L(`答案：${answerIn(output)}\n\n说明：用代码${this.spec.explain}。`, `Answer: ${answerIn(output)}\n\nMethod: with code, ${this.spec.explain}.`))
 
   next() {
     return this.box.code ? this.toolMode(this.box.code) : this.textMode()
@@ -221,23 +256,24 @@ class Session {
         const nKey = keyOf(preview, /^n$|rows|lines|limit|count|size/i)
         const done = this.uses.some((u) => u.use.name === preview.name && norm((u.use.input as Record<string, unknown>)?.[nameKey]) === this.ds)
         const input = { [nameKey]: this.ds, ...(nKey ? { [nKey]: 5 } : {}) }
-        if (known && !done) return callTool(this.ctx, preview.name, input, `先预览一下 ${this.ds} 的数据。`)
-        if (!known && list && !this.uses.some((u) => u.use.name === list.name)) return callTool(this.ctx, list.name, {}, '先看看有哪些数据集。')
-        if (!known && !list && !done) return callTool(this.ctx, preview.name, input, `先预览一下 ${this.ds} 的数据。`)
+        if (known && !done) return callTool(this.ctx, preview.name, input, L(`先预览一下 ${this.ds} 的数据。`, `Previewing ${this.ds} first.`))
+        if (!known && list && !this.uses.some((u) => u.use.name === list.name)) return callTool(this.ctx, list.name, {}, L('先看看有哪些数据集。', 'Checking which datasets exist first.'))
+        if (!known && !list && !done) return callTool(this.ctx, preview.name, input, L(`先预览一下 ${this.ds} 的数据。`, `Previewing ${this.ds} first.`))
       }
-      if (known && !ran(peekCode(this.ds)).length) return exec(peekCode(this.ds), `先打印几行 ${this.ds}，看看数据长什么样。`)
-      if (!known && this.box.list && !this.uses.some((u) => u.use.name === this.box.list!.name)) return callTool(this.ctx, this.box.list.name, {}, '先看看有哪些数据集。')
+      if (known && !ran(peekCode(this.ds)).length) return exec(peekCode(this.ds), L(`先打印几行 ${this.ds}，看看数据长什么样。`, `Printing a few rows of ${this.ds} to see what the data looks like.`))
+      if (!known && this.box.list && !this.uses.some((u) => u.use.name === this.box.list!.name))
+        return callTool(this.ctx, this.box.list.name, {}, L('先看看有哪些数据集。', 'Checking which datasets exist first.'))
       if (!this.columnsSeen()) return this.estimate()
     }
 
-    if (this.wantsProfile() && !ran(profileCode(this.ds)).length) return exec(profileCode(this.ds), `先检查一下 ${this.ds} 的数据质量。`)
+    if (this.wantsProfile() && !ran(profileCode(this.ds)).length) return exec(profileCode(this.ds), L(`先检查一下 ${this.ds} 的数据质量。`, `Checking the data quality of ${this.ds} first.`))
 
     const src = this.code()
     const mine = ran(src)
-    if (!mine.length) return exec(src, '写代码计算。')
+    if (!mine.length) return exec(src, L('写代码计算。', 'Writing code to compute it.'))
     const out = mine[mine.length - 1].result ?? ''
     const answer = answerIn(out)
-    if (isError(out) || answer === undefined) return say(`代码运行出错了，我没能算出结果：${out.slice(0, 200)}`)
+    if (isError(out) || answer === undefined) return say(L(`代码运行出错了，我没能算出结果：${out.slice(0, 200)}`, `The code failed and I couldn't compute a result: ${out.slice(0, 200)}`))
     return this.final(out)
   }
 
@@ -250,7 +286,7 @@ class Session {
     const prevText = msgs.length >= 2 && msgs[msgs.length - 2].role === 'assistant' ? textOfMessage(msgs[msgs.length - 2]) : ''
     const wroteProfile = msgs.some((m) => m.role === 'assistant' && textOfMessage(m).includes(PROFILE_MARK))
     if (prevText.includes('```') && !prevText.includes(PROFILE_MARK) && !isError(lastText) && answerIn(lastText) !== undefined) return this.final(lastText)
-    if (this.wantsProfile() && !wroteProfile) return say(`先检查一下数据质量：\n\n${codeBlock(profileCode(this.ds))}`)
+    if (this.wantsProfile() && !wroteProfile) return say(`${L('先检查一下数据质量：', 'First, a data quality check:')}\n\n${codeBlock(profileCode(this.ds))}`)
     return say(codeBlock(this.code()))
   }
 }

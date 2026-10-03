@@ -1,3 +1,5 @@
+import { L } from '../../../engine/locale'
+
 /**
  * P11 的系统底座：青橙到家（本地生活平台）的微服务、依赖拓扑、指标基线、变更历史、功能开关和运维手册。
  * 时间轴：分钟下标 0 = 09:40，60 = 10:40（告警处理开始的“现在”）。日期都是 2026-09-20。
@@ -18,17 +20,17 @@ export interface ServiceInfo {
 }
 
 export const SERVICES: ServiceInfo[] = [
-  { name: 'gateway', kind: 'service', description: 'API 网关：所有 App / 小程序流量的入口', owner: '平台组', replicas: 6, nodePool: 'pool-a' },
-  { name: 'order-svc', kind: 'service', description: '订单服务：下单、订单查询', owner: '交易组', replicas: 8, nodePool: 'pool-a' },
-  { name: 'payment-svc', kind: 'service', description: '支付服务：对接第三方支付通道', owner: '支付组', replicas: 6, nodePool: 'pool-a' },
-  { name: 'inventory-svc', kind: 'service', description: '库存服务：库存查询与预占', owner: '交易组', replicas: 4, nodePool: 'pool-b' },
-  { name: 'user-svc', kind: 'service', description: '用户服务：登录、用户资料（gateway 通过 mTLS 调用）', owner: '账号组', replicas: 4, nodePool: 'pool-a' },
-  { name: 'notification-svc', kind: 'service', description: '通知服务：短信 / 推送', owner: '平台组', replicas: 3, nodePool: 'pool-a' },
-  { name: 'report-svc', kind: 'service', description: '报表服务：运营报表、批处理任务', owner: '数据组', replicas: 2, nodePool: 'pool-b' },
-  { name: 'redis-main', kind: 'cache', description: 'Redis 主缓存集群', owner: 'DBA', replicas: 3 },
-  { name: 'mysql-orders', kind: 'database', description: 'MySQL 订单库（一主一从，max_connections=500）', owner: 'DBA', replicas: 2 },
-  { name: 'ext-paygate', kind: 'external', description: '第三方：汇付通支付通道', owner: '外部供应商（汇付通）' },
-  { name: 'ext-sms', kind: 'external', description: '第三方：云信短信平台', owner: '外部供应商（云信）' },
+  { name: 'gateway', kind: 'service', description: L('API 网关：所有 App / 小程序流量的入口', 'API gateway: entry point for all app / mini-program traffic'), owner: L('平台组', 'Platform'), replicas: 6, nodePool: 'pool-a' },
+  { name: 'order-svc', kind: 'service', description: L('订单服务：下单、订单查询', 'Order service: checkout, order lookup'), owner: L('交易组', 'Trade'), replicas: 8, nodePool: 'pool-a' },
+  { name: 'payment-svc', kind: 'service', description: L('支付服务：对接第三方支付通道', 'Payment service: talks to the third-party payment gateway'), owner: L('支付组', 'Payments'), replicas: 6, nodePool: 'pool-a' },
+  { name: 'inventory-svc', kind: 'service', description: L('库存服务：库存查询与预占', 'Inventory service: stock lookup and reservation'), owner: L('交易组', 'Trade'), replicas: 4, nodePool: 'pool-b' },
+  { name: 'user-svc', kind: 'service', description: L('用户服务：登录、用户资料（gateway 通过 mTLS 调用）', 'User service: login, profiles (gateway calls it over mTLS)'), owner: L('账号组', 'Accounts'), replicas: 4, nodePool: 'pool-a' },
+  { name: 'notification-svc', kind: 'service', description: L('通知服务：短信 / 推送', 'Notification service: SMS / push'), owner: L('平台组', 'Platform'), replicas: 3, nodePool: 'pool-a' },
+  { name: 'report-svc', kind: 'service', description: L('报表服务：运营报表、批处理任务', 'Report service: ops reports, batch jobs'), owner: L('数据组', 'Data'), replicas: 2, nodePool: 'pool-b' },
+  { name: 'redis-main', kind: 'cache', description: L('Redis 主缓存集群', 'Main Redis cache cluster'), owner: 'DBA', replicas: 3 },
+  { name: 'mysql-orders', kind: 'database', description: L('MySQL 订单库（一主一从，max_connections=500）', 'MySQL orders DB (one primary, one replica, max_connections=500)'), owner: 'DBA', replicas: 2 },
+  { name: 'ext-paygate', kind: 'external', description: L('第三方：汇付通支付通道', 'Third party: HuiPay payment gateway'), owner: L('外部供应商（汇付通）', 'External vendor (HuiPay)') },
+  { name: 'ext-sms', kind: 'external', description: L('第三方：云信短信平台', 'Third party: YunSMS messaging platform'), owner: L('外部供应商（云信）', 'External vendor (YunSMS)') },
 ]
 
 export const EDGES: [string, string][] = [
@@ -62,9 +64,9 @@ export const UNITS: Record<Metric, string> = {
   cpu: '%',
   mem: '%',
   rps: 'req/s',
-  connections: '个',
+  connections: L('个', 'conns'),
   disk: '%',
-  evictions: '次/分钟',
+  evictions: L('次/分钟', '/min'),
   hit_rate: '%',
 }
 
@@ -93,31 +95,31 @@ export interface Change {
 /** 各服务的历史变更（新的在前）。事故会在前面追加当天的变更。 */
 export const BASE_CHANGES: Record<string, Change[]> = {
   gateway: [
-    { time: '2026-09-19 16:20', type: 'deploy', version: 'v1.31.0', summary: '升级限流组件', author: '平台组-阿飞' },
-    { time: '2026-09-15 11:02', type: 'config', version: 'cfg-87', summary: '路由表：新增 /api/coupons 路由', author: '平台组-阿飞' },
-    { time: '2026-09-08 15:40', type: 'deploy', version: 'v1.30.2', summary: '修复 header 透传', author: '平台组-阿飞' },
+    { time: '2026-09-19 16:20', type: 'deploy', version: 'v1.31.0', summary: L('升级限流组件', 'Upgrade rate-limiter'), author: L('平台组-阿飞', 'platform/Fei') },
+    { time: '2026-09-15 11:02', type: 'config', version: 'cfg-87', summary: L('路由表：新增 /api/coupons 路由', 'Routing table: add /api/coupons route'), author: L('平台组-阿飞', 'platform/Fei') },
+    { time: '2026-09-08 15:40', type: 'deploy', version: 'v1.30.2', summary: L('修复 header 透传', 'Fix header passthrough'), author: L('平台组-阿飞', 'platform/Fei') },
   ],
   'order-svc': [
-    { time: '2026-09-17 14:30', type: 'deploy', version: 'v2.13.4', summary: '订单列表分页优化', author: '交易组-小周' },
-    { time: '2026-09-12 10:15', type: 'deploy', version: 'v2.13.3', summary: '修复优惠券叠加计算', author: '交易组-小周' },
+    { time: '2026-09-17 14:30', type: 'deploy', version: 'v2.13.4', summary: L('订单列表分页优化', 'Optimize order-list pagination'), author: L('交易组-小周', 'trade/Joe') },
+    { time: '2026-09-12 10:15', type: 'deploy', version: 'v2.13.3', summary: L('修复优惠券叠加计算', 'Fix stacked-coupon calculation'), author: L('交易组-小周', 'trade/Joe') },
   ],
   'payment-svc': [
-    { time: '2026-09-18 15:10', type: 'deploy', version: 'v5.7.3', summary: '退款对账任务优化', author: '支付组-阿珍' },
-    { time: '2026-09-15 11:45', type: 'deploy', version: 'v5.7.2', summary: '升级 SDK', author: '支付组-阿珍' },
+    { time: '2026-09-18 15:10', type: 'deploy', version: 'v5.7.3', summary: L('退款对账任务优化', 'Optimize refund reconciliation job'), author: L('支付组-阿珍', 'payments/Jen') },
+    { time: '2026-09-15 11:45', type: 'deploy', version: 'v5.7.2', summary: L('升级 SDK', 'Upgrade SDK'), author: L('支付组-阿珍', 'payments/Jen') },
   ],
   'inventory-svc': [
-    { time: '2026-09-17 17:05', type: 'deploy', version: 'v3.1.8', summary: '库存预占接口限流', author: '交易组-大刘' },
-    { time: '2026-09-10 16:20', type: 'deploy', version: 'v3.1.7', summary: '日志格式调整', author: '交易组-大刘' },
+    { time: '2026-09-17 17:05', type: 'deploy', version: 'v3.1.8', summary: L('库存预占接口限流', 'Rate-limit stock reservation API'), author: L('交易组-大刘', 'trade/Liu') },
+    { time: '2026-09-10 16:20', type: 'deploy', version: 'v3.1.7', summary: L('日志格式调整', 'Tweak log format'), author: L('交易组-大刘', 'trade/Liu') },
   ],
   'user-svc': [
-    { time: '2026-09-16 10:40', type: 'deploy', version: 'v4.2.1', summary: '登录风控规则更新', author: '账号组-Kiki' },
-    { time: '2026-09-09 14:00', type: 'deploy', version: 'v4.2.0', summary: '支持手机号一键登录', author: '账号组-Kiki' },
-    { time: '2026-06-21 09:00', type: 'cert', summary: 'mTLS 服务端证书 user-svc-tls 签发（有效期 90 天，到期 2026-09-20 10:00）', author: 'cert-manager' },
+    { time: '2026-09-16 10:40', type: 'deploy', version: 'v4.2.1', summary: L('登录风控规则更新', 'Update login risk rules'), author: L('账号组-Kiki', 'accounts/Kiki') },
+    { time: '2026-09-09 14:00', type: 'deploy', version: 'v4.2.0', summary: L('支持手机号一键登录', 'One-tap phone-number login'), author: L('账号组-Kiki', 'accounts/Kiki') },
+    { time: '2026-06-21 09:00', type: 'cert', summary: L('mTLS 服务端证书 user-svc-tls 签发（有效期 90 天，到期 2026-09-20 10:00）', 'Issue mTLS server cert user-svc-tls (valid 90 days, expires 2026-09-20 10:00)'), author: 'cert-manager' },
   ],
-  'notification-svc': [{ time: '2026-09-14 13:20', type: 'deploy', version: 'v1.9.2', summary: '短信模板变量校验', author: '平台组-阿飞' }],
-  'report-svc': [{ time: '2026-09-11 18:00', type: 'deploy', version: 'v1.6.0', summary: '新增大促实时报表', author: '数据组-Sean' }],
-  'redis-main': [{ time: '2026-09-01 02:00', type: 'config', version: 'cfg-41', summary: 'maxmemory 16gb，淘汰策略 allkeys-lru', author: 'DBA-老孟' }],
-  'mysql-orders': [{ time: '2026-08-20 02:00', type: 'config', version: 'cfg-12', summary: 'max_connections=500', author: 'DBA-老孟' }],
+  'notification-svc': [{ time: '2026-09-14 13:20', type: 'deploy', version: 'v1.9.2', summary: L('短信模板变量校验', 'Validate SMS template variables'), author: L('平台组-阿飞', 'platform/Fei') }],
+  'report-svc': [{ time: '2026-09-11 18:00', type: 'deploy', version: 'v1.6.0', summary: L('新增大促实时报表', 'Add real-time flash-sale reports'), author: L('数据组-Sean', 'data/Sean') }],
+  'redis-main': [{ time: '2026-09-01 02:00', type: 'config', version: 'cfg-41', summary: L('maxmemory 16gb，淘汰策略 allkeys-lru', 'maxmemory 16gb, eviction policy allkeys-lru'), author: L('DBA-老孟', 'DBA/Meng') }],
+  'mysql-orders': [{ time: '2026-08-20 02:00', type: 'config', version: 'cfg-12', summary: 'max_connections=500', author: L('DBA-老孟', 'DBA/Meng') }],
 }
 
 export interface Flag {
@@ -128,13 +130,15 @@ export interface Flag {
 }
 
 export const BASE_FLAGS: Flag[] = [
-  { name: 'order.debug_log', owner: 'order-svc', on: false, description: '订单服务 DEBUG 级别日志' },
-  { name: 'checkout.new_pricing', owner: 'order-svc', on: false, description: '新版价格引擎' },
-  { name: 'payment.trace_log', owner: 'payment-svc', on: false, description: '支付服务全量请求追踪日志' },
-  { name: 'report.realtime_rebuild', owner: 'report-svc', on: false, description: '报表实时重建（CPU 密集的批处理）' },
+  { name: 'order.debug_log', owner: 'order-svc', on: false, description: L('订单服务 DEBUG 级别日志', 'Order service DEBUG-level logging') },
+  { name: 'checkout.new_pricing', owner: 'order-svc', on: false, description: L('新版价格引擎', 'New pricing engine') },
+  { name: 'payment.trace_log', owner: 'payment-svc', on: false, description: L('支付服务全量请求追踪日志', 'Payment service full request trace logging') },
+  { name: 'report.realtime_rebuild', owner: 'report-svc', on: false, description: L('报表实时重建（CPU 密集的批处理）', 'Real-time report rebuild (CPU-heavy batch job)') },
 ]
 
-export const RUNBOOKS: { topic: string; keywords: string[]; text: string }[] = [
+type Runbook = { topic: string; keywords: string[]; text: string }
+
+const ZH_RUNBOOKS: Runbook[] = [
   {
     topic: '发布回滚',
     keywords: ['发布', '回滚', 'deploy', 'rollback', '版本', '5xx', '错误率'],
@@ -214,3 +218,86 @@ export const RUNBOOKS: { topic: string; keywords: string[]; text: string }[] = [
 3. 连接数打满、慢查询都**不是**切换的理由。`,
   },
 ]
+
+const EN_RUNBOOKS: Runbook[] = [
+  {
+    topic: 'Deploy rollback',
+    keywords: ['deploy', 'rollback', 'roll back', 'release', 'version', '5xx', 'error rate', 'error_rate'],
+    text: `# Deploy rollback
+1. Use getDeployHistory to see the faulty service's changes. **A change must happen before the anomaly started**; a change made after the onset is not the cause.
+2. Roll back to the previous stable version: rollback(service, previous stable version). If a later "fix" version was shipped and is also broken, go back to the last version before the problem began.
+3. Only roll back the root-cause service. Services failing downstream or timing out upstream don't need a restart or rollback.
+4. Watch the error rate for 5 minutes after the rollback.`,
+  },
+  {
+    topic: 'DB connection exhaustion',
+    keywords: ['database', 'db', 'connection', 'mysql', 'pool', 'too many', 'exhaust'],
+    text: `# DB connection exhaustion (mysql-orders max_connections=500)
+1. getMetrics('mysql-orders', 'connections') to confirm the connection count is maxed out.
+2. searchLogs('mysql-orders', 'connections') to see connections per account and find the caller holding an abnormal number.
+3. Check that service's change history (deploys / scaling / flags) for the change that made connections spike.
+4. Remediation: undo that change (e.g. scale the replicas back: scale(service, original replica count)).
+5. **Don't** restart the database and **don't** fail over: a full connection pool is not an instance failure, and a failover means 30+ seconds of write downtime. Don't restart the affected business services either.`,
+  },
+  {
+    topic: 'Disk full (log volume)',
+    keywords: ['disk', 'no space', 'log volume', 'full', 'space'],
+    text: `# Disk full (log volume /var/log/app)
+1. getMetrics(service, 'disk') to confirm the log volume is full.
+2. Check getDeployHistory: usually someone turned on a DEBUG / trace logging flag (type=flag).
+3. First turn the logging flag off: toggleFlag(flag name, false).
+4. Then restart the service: restart(service). On startup the process cleans old logs under /var/log/app.
+5. The order matters: restart first and turn the flag off later, and the log flood fills the disk again within minutes.`,
+  },
+  {
+    topic: 'Certificate expiry',
+    keywords: ['cert', 'certificate', 'x509', 'tls', 'ssl', 'handshake', 'expir'],
+    text: `# Certificate expiry
+1. When logs show "x509: certificate has expired", first work out **whose** certificate expired (a server cert, or our own client cert): check notAfter and the cert name.
+2. cert-manager renews and ships new certificates ahead of time, but a service only loads its certificate at startup. Confirm the new cert is out via the cert entry in getDeployHistory.
+3. Remediation: restart the service that **holds the certificate**: restart(service). Don't restart the callers.`,
+  },
+  {
+    topic: 'Cache eviction storm',
+    keywords: ['cache', 'redis', 'evict', 'eviction', 'hit_rate', 'hit rate', 'maxmemory'],
+    text: `# Cache eviction storm (redis-main)
+1. getMetrics('redis-main', 'evictions') and 'hit_rate': evictions spike, hit rate drops, requests fall through to the database and downstream latency rises.
+2. Check redis-main's change history: did someone change maxmemory or other config?
+3. Remediation: roll back the config with rollback('redis-main', previous config version). **Don't** restart redis (it empties the cache and makes the stampede worse).`,
+  },
+  {
+    topic: 'Noisy neighbor (CPU contention)',
+    keywords: ['cpu', 'neighbor', 'noisy', 'node pool', 'node', 'contention', 'throttl'],
+    text: `# Noisy neighbor (CPU contention)
+1. When the victim's CPU is high but its own traffic (rps) and deploys haven't changed, check nodePool in listServices and look at the other services on the same node pool.
+2. Find the one whose CPU spiked and check its change history (batch-job flags, scale-ups…).
+3. Remediation: turn off the batch-job flag (toggleFlag(flag, false)) or scale it back to its original replica count. Don't scale up the victim — the node pool's CPU is already saturated.`,
+  },
+  {
+    topic: 'Third-party outage',
+    keywords: ['third party', 'third-party', 'external', 'ext-', 'vendor', 'huipay', 'yunsms', 'paygate', 'sms', 'escalat', 'outage'],
+    text: `# Third-party outage (HuiPay ext-paygate / YunSMS ext-sms)
+1. Confirm the errors come from the third party: logs show timeouts / 503s calling ext-*, and we haven't made any related change recently.
+2. **Make no changes**: restarting, rolling back or scaling our own services can't fix a vendor's problem and only widens the blast radius.
+3. Escalate: page the vendor's on-call (HuiPay 400-820-xxxx / YunSMS ticket) and post a status update in #incident and on the status page: impact, start time, vendor contacted, next update time.
+4. Watch out: if the log says "x509: certificate has expired" and the expired cert is **our own client cert**, it's our problem — follow "Certificate expiry".`,
+  },
+  {
+    topic: 'False alarms and flapping',
+    keywords: ['false', 'false alarm', 'flapping', 'flap', 'alert', 'recovered', 'noise'],
+    text: `# False alarms and flapping
+1. Look at the alerting metric over the last 30–60 minutes: if only one or two points crossed the threshold, it has since recovered, and error logs didn't increase, it's flapping.
+2. A 4xx spike (bad client parameters, load-test traffic) is not a service failure.
+3. Remediation: **make no changes**. Explain the reasoning in the summary and suggest tuning the alert threshold or duration.`,
+  },
+  {
+    topic: 'Primary DB failover',
+    keywords: ['primary', 'failover', 'fail over', 'heartbeat', 'down', 'unreachable', 'replica'],
+    text: `# Primary DB failover (mysql-orders)
+1. Fail over only when **the primary instance itself is down**: mysql-orders logs show "primary ... unreachable / heartbeat lost", the replica is healthy and replication lag is 0.
+2. Remediation: failover('mysql-orders'). The approval reason must include the evidence that the primary is unreachable and the replica's replication lag.
+3. A maxed-out connection pool or slow queries are **not** reasons to fail over.`,
+  },
+]
+
+export const RUNBOOKS: Runbook[] = L(ZH_RUNBOOKS, EN_RUNBOOKS)

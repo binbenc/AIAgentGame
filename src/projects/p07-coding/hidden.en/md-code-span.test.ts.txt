@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+
+test('asterisks inside inline code are not emphasis', () => {
+  expect(renderInline('`a*b*c`')).toBe('<code>a*b*c</code>')
+})
+
+test('underscores inside inline code are not emphasis', () => {
+  expect(renderInline('see `_x_` here')).toBe('see <code>_x_</code> here')
+})
+
+test('inline code content is escaped', () => {
+  expect(renderInline('`x < y`')).toBe('<code>x &lt; y</code>')
+})

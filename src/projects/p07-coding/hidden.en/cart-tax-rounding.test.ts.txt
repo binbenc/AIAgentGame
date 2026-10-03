@@ -1,0 +1,18 @@
+import { expect, test } from 'testkit'
+import { checkout } from '../src/checkout'
+import { taxFor } from '../src/tax'
+
+test('tax rounds to the nearest cent', () => {
+  expect(taxFor(1999, 0.13)).toBe(260)
+  expect(taxFor(1050, 0.05)).toBe(53)
+})
+
+test('checkout: ¥19.99 at 13% tax', () => {
+  const r = checkout([{ sku: 'MUG', name: 'Mug', unitPrice: 1999, quantity: 1 }], [], 0.13)
+  expect(r.tax).toBe(260)
+  expect(r.total).toBe(2259)
+})
+
+test('less than half a cent rounds down', () => {
+  expect(taxFor(1001, 0.13)).toBe(130)
+})

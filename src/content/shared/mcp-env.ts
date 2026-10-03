@@ -5,6 +5,7 @@
  */
 import { __delay, __traced } from '../../engine/runtime/api'
 import type { JSONSchema } from '../../engine/llm/types'
+import { L } from '../../engine/locale'
 
 export const MCP_PROTOCOL_VERSION = '2025-06-18'
 
@@ -90,16 +91,23 @@ const PAGE_SIZE = 2
 
 /** 第三方提供的 “Nova 智能家居设备” MCP 服务器（tools/list 分页，每页 2 个工具） */
 export function createDeviceMcpServer() {
-  const devices: Device[] = [
-    { id: 'ac-living', name: '客厅空调', room: '客厅', type: 'air_conditioner', power: 'on', temperature: 26 },
-    { id: 'ac-bedroom', name: '卧室空调', room: '卧室', type: 'air_conditioner', power: 'off', temperature: 25 },
-    { id: 'light-living', name: '客厅主灯', room: '客厅', type: 'light', power: 'on' },
-  ]
+  const devices: Device[] = L(
+    [
+      { id: 'ac-living', name: '客厅空调', room: '客厅', type: 'air_conditioner', power: 'on', temperature: 26 },
+      { id: 'ac-bedroom', name: '卧室空调', room: '卧室', type: 'air_conditioner', power: 'off', temperature: 25 },
+      { id: 'light-living', name: '客厅主灯', room: '客厅', type: 'light', power: 'on' },
+    ],
+    [
+      { id: 'ac-living', name: 'Living room AC', room: 'Living room', type: 'air_conditioner', power: 'on', temperature: 26 },
+      { id: 'ac-bedroom', name: 'Bedroom AC', room: 'Bedroom', type: 'air_conditioner', power: 'off', temperature: 25 },
+      { id: 'light-living', name: 'Living room ceiling light', room: 'Living room', type: 'light', power: 'on' },
+    ],
+  )
   const setTemperature = __traced('device.setTemperature', (id: string, celsius: number) => {
     const d = devices.find((x) => x.id === id)
-    if (!d) throw new ToolError(`设备 ${id} 不存在，请先调用 list_devices 查看设备 id`)
-    if (d.type !== 'air_conditioner') throw new ToolError(`设备 ${d.name}（${id}）不是空调，不能设置温度`)
-    if (!Number.isInteger(celsius) || celsius < 16 || celsius > 30) throw new ToolError(`温度 ${celsius}℃ 超出范围，可设置范围是 16~30℃ 的整数`)
+    if (!d) throw new ToolError(L(`设备 ${id} 不存在，请先调用 list_devices 查看设备 id`, `Device ${id} not found. Call list_devices first to get the device ids`))
+    if (d.type !== 'air_conditioner') throw new ToolError(L(`设备 ${d.name}（${id}）不是空调，不能设置温度`, `Device ${d.name} (${id}) is not an air conditioner, so its temperature can't be set`))
+    if (!Number.isInteger(celsius) || celsius < 16 || celsius > 30) throw new ToolError(L(`温度 ${celsius}℃ 超出范围，可设置范围是 16~30℃ 的整数`, `Temperature ${celsius}℃ is out of range. It must be an integer from 16 to 30℃`))
     d.temperature = celsius
     d.power = 'on'
     return { ...d }
@@ -107,21 +115,21 @@ export function createDeviceMcpServer() {
   const tools: DeviceTool[] = [
     {
       name: 'list_devices',
-      title: '列出设备',
-      description: '列出用户家中所有智能设备，返回设备 id、名称、房间、类型、开关状态和当前温度。',
+      title: L('列出设备', 'List devices'),
+      description: L('列出用户家中所有智能设备，返回设备 id、名称、房间、类型、开关状态和当前温度。', "List all smart devices in the user's home, with each device's id, name, room, type, power state and current temperature."),
       inputSchema: { type: 'object', properties: {} },
       delayMs: 50,
       run: () => JSON.stringify(devices),
     },
     {
       name: 'set_temperature',
-      title: '设置空调温度',
-      description: '把某台空调设置到指定温度（16~30℃ 的整数），空调关机时会自动开机。',
+      title: L('设置空调温度', 'Set AC temperature'),
+      description: L('把某台空调设置到指定温度（16~30℃ 的整数），空调关机时会自动开机。', 'Set an air conditioner to the given temperature (an integer from 16 to 30℃). Turns the AC on if it is off.'),
       inputSchema: {
         type: 'object',
         properties: {
-          device_id: { type: 'string', description: '设备 id，例如 ac-living' },
-          celsius: { type: 'integer', minimum: 16, maximum: 30, description: '目标温度（摄氏度）' },
+          device_id: { type: 'string', description: L('设备 id，例如 ac-living', 'Device id, e.g. ac-living') },
+          celsius: { type: 'integer', minimum: 16, maximum: 30, description: L('目标温度（摄氏度）', 'Target temperature (Celsius)') },
         },
         required: ['device_id', 'celsius'],
       },
@@ -130,13 +138,13 @@ export function createDeviceMcpServer() {
     },
     {
       name: 'firmware.check_update',
-      title: '检查固件更新',
-      description: '检查某台设备是否有可用的固件更新。',
-      inputSchema: { type: 'object', properties: { device_id: { type: 'string', description: '设备 id' } }, required: ['device_id'] },
+      title: L('检查固件更新', 'Check for firmware updates'),
+      description: L('检查某台设备是否有可用的固件更新。', 'Check whether a firmware update is available for a device.'),
+      inputSchema: { type: 'object', properties: { device_id: { type: 'string', description: L('设备 id', 'Device id') } }, required: ['device_id'] },
       delayMs: 100,
       run: (a) => {
-        if (!devices.some((d) => d.id === a.device_id)) throw new ToolError(`设备 ${a.device_id} 不存在`)
-        return `设备 ${a.device_id} 的固件已是最新版本 v2.3.1`
+        if (!devices.some((d) => d.id === a.device_id)) throw new ToolError(L(`设备 ${a.device_id} 不存在`, `Device ${a.device_id} not found`))
+        return L(`设备 ${a.device_id} 的固件已是最新版本 v2.3.1`, `Device ${a.device_id} is already on the latest firmware, v2.3.1`)
       },
     },
   ]
@@ -153,14 +161,14 @@ export function createDeviceMcpServer() {
         return ok(id, {
           protocolVersion: MCP_PROTOCOL_VERSION,
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: 'nova-devices', title: 'Nova 智能家居设备', version: '3.2.0' },
-          instructions: '控制 Nova 智能家居设备。修改设备状态前，先用 list_devices 确认设备 id。',
+          serverInfo: { name: 'nova-devices', title: L('Nova 智能家居设备', 'Nova Smart Home Devices'), version: '3.2.0' },
+          instructions: L('控制 Nova 智能家居设备。修改设备状态前，先用 list_devices 确认设备 id。', 'Controls Nova smart home devices. Before changing a device, call list_devices to confirm its id.'),
         })
       case 'ping':
         return ok(id, {})
       case 'tools/list': {
         const start = params?.cursor ? Number(String(params.cursor).replace('page-', '')) : 0
-        if (!Number.isInteger(start) || start < 0 || start >= tools.length) return fail(id, -32602, `无效的 cursor：${params?.cursor}`)
+        if (!Number.isInteger(start) || start < 0 || start >= tools.length) return fail(id, -32602, L(`无效的 cursor：${params?.cursor}`, `Invalid cursor: ${params?.cursor}`))
         const page = tools.slice(start, start + PAGE_SIZE).map(({ name, title, description, inputSchema }) => ({ name, title, description, inputSchema }))
         const next = start + PAGE_SIZE
         return ok(id, next < tools.length ? { tools: page, nextCursor: `page-${next}` } : { tools: page })

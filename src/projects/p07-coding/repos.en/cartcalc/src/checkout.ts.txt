@@ -1,0 +1,25 @@
+import { subtotal } from './cart'
+import { applyCoupons } from './coupons'
+import { taxFor } from './tax'
+import type { Coupon, LineItem } from './types'
+
+export interface Receipt {
+  subtotal: number
+  discount: number
+  tax: number
+  total: number
+  coupons: string[]
+}
+
+/** Checkout: subtotal → coupons → tax on the discounted amount → total. All amounts are in cents. */
+export function checkout(items: LineItem[], coupons: Coupon[] = [], taxRate = 0): Receipt {
+  const sub = subtotal(items)
+  const { total: afterCoupons, applied } = applyCoupons(sub, coupons)
+  const tax = taxFor(afterCoupons, taxRate)
+  return { subtotal: sub, discount: sub - afterCoupons, tax, total: afterCoupons + tax, coupons: applied }
+}
+
+/** Format cents as "¥12.34" */
+export function formatCents(cents: number): string {
+  return `¥${(cents / 100).toFixed(2)}`
+}

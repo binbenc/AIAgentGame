@@ -16,6 +16,7 @@ import { CompareView } from '../editor/CompareView'
 import { TracePanel } from '../trace/TracePanel'
 import { useProjectsUnlocked } from './ProjectsPage'
 import { useProjectRunner, type LiveTask } from './useProjectRunner'
+import { L } from '../../engine/locale'
 
 const NO_HISTORY: ProjectRunRecord[] = []
 
@@ -35,16 +36,16 @@ const money = (x: number | null) => (x === null ? '—' : x < 0.01 ? `$${x.toFix
 function Brief({ project, history, comparing, onCompare }: { project: ProjectDef; history: ProjectRunRecord[]; comparing: boolean; onCompare(): void }) {
   const [tab, setTab] = useState<Tab>('brief')
   const tabs: [Tab, string][] = [
-    ['brief', '需求'],
-    ['tasks', `任务 ${project.tasks.length}`],
-    ['guide', '生产要点'],
-    ['history', `历史 ${history.length}`],
+    ['brief', L('需求', 'Brief')],
+    ['tasks', `${L('任务', 'Tasks')} ${project.tasks.length}`],
+    ['guide', L('生产要点', 'Production notes')],
+    ['history', `${L('历史', 'History')} ${history.length}`],
   ]
   return (
     <aside className="flex min-h-0 w-[min(440px,36vw)] shrink-0 flex-col border-r border-slate-800">
       <div className="border-b border-slate-800 px-4 pb-3 pt-4">
         <div className="text-xs text-slate-500">
-          实战项目 P{project.number} · {TIER_NAMES[project.tier]} · 原型{' '}
+          {L('实战项目', 'Project')} P{project.number} · {TIER_NAMES[project.tier]} · {L('原型', 'modeled on')}{' '}
           <a href={project.prototype.url} target="_blank" rel="noreferrer" className="text-violet-400 hover:underline">
             {project.prototype.name}
           </a>
@@ -63,7 +64,9 @@ function Brief({ project, history, comparing, onCompare }: { project: ProjectDef
         {tab === 'brief' && (
           <>
             <Markdown>{project.brief}</Markdown>
-            <h3 className="mb-1 mt-4 text-sm font-semibold text-white">接口约定（{project.entry}）</h3>
+            <h3 className="mb-1 mt-4 text-sm font-semibold text-white">
+              {L('接口约定', 'Contract')} ({project.entry})
+            </h3>
             <pre className="overflow-x-auto rounded-md bg-slate-950 p-2 font-mono text-[11px] text-slate-300">{project.contract}</pre>
           </>
         )}
@@ -71,7 +74,7 @@ function Brief({ project, history, comparing, onCompare }: { project: ProjectDef
           <ul className="space-y-1 text-xs">
             {project.tasks.map((t) => (
               <li key={t.id} className="flex items-start gap-2 rounded border border-slate-800 p-2">
-                <span className={`mt-0.5 shrink-0 rounded px-1 text-[10px] ${t.core ? 'bg-violet-900 text-violet-200' : 'bg-slate-800 text-slate-400'}`}>{t.core ? '核心' : '基准'}</span>
+                <span className={`mt-0.5 shrink-0 rounded px-1 text-[10px] ${t.core ? 'bg-violet-900 text-violet-200' : 'bg-slate-800 text-slate-400'}`}>{t.core ? L('核心', 'core') : L('基准', 'bench')}</span>
                 <div className="min-w-0">
                   <div className="font-medium text-slate-200">{t.title}</div>
                   <div className="truncate text-slate-500">{typeof t.input === 'string' ? t.input : t.id}</div>
@@ -84,7 +87,7 @@ function Brief({ project, history, comparing, onCompare }: { project: ProjectDef
           <>
             <Markdown>{project.guide}</Markdown>
             <Button className="mt-4" onClick={onCompare}>
-              {comparing ? '关闭对照' : '对照参考解法'}
+              {comparing ? L('关闭对照', 'Close comparison') : L('对照参考解法', 'Compare with reference')}
             </Button>
           </>
         )}
@@ -92,19 +95,19 @@ function Brief({ project, history, comparing, onCompare }: { project: ProjectDef
           <table className="w-full text-left text-[11px] text-slate-300">
             <thead className="text-slate-500">
               <tr>
-                <th className="py-1">时间</th>
-                <th>模式</th>
+                <th className="py-1">{L('时间', 'Time')}</th>
+                <th>{L('模式', 'Mode')}</th>
                 <th>pass@1</th>
                 <th>pass^k</th>
                 <th>Token</th>
-                <th>费用</th>
+                <th>{L('费用', 'Cost')}</th>
               </tr>
             </thead>
             <tbody>
               {history.map((h) => (
                 <tr key={h.at} className="border-t border-slate-800">
-                  <td className="py-1">{new Date(h.at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td>{h.mode === 'mock' ? '模拟' : `真实${h.model ? ` · ${h.model}` : ''}`}</td>
+                  <td className="py-1">{new Date(h.at).toLocaleString(L('zh-CN', 'en-US'), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                  <td>{h.mode === 'mock' ? L('模拟', 'mock') : `${L('真实', 'real')}${h.model ? ` · ${h.model}` : ''}`}</td>
                   <td>{pct(h.passAt1)}</td>
                   <td>{h.trials > 1 ? `${pct(h.passHatK)} (k=${h.trials})` : '—'}</td>
                   <td>{h.totalTokens}</td>
@@ -114,7 +117,7 @@ function Brief({ project, history, comparing, onCompare }: { project: ProjectDef
               {!history.length && (
                 <tr>
                   <td colSpan={6} className="py-3 text-slate-500">
-                    还没有运行记录。每次运行都会记在这里，方便对比改动前后的效果。
+                    {L('还没有运行记录。每次运行都会记在这里，方便对比改动前后的效果。', 'No runs yet. Every run is recorded here so you can compare before and after a change.')}
                   </td>
                 </tr>
               )}
@@ -130,26 +133,30 @@ function BenchDialog({ project, onClose, onStart }: { project: ProjectDef; onClo
   const [scope, setScope] = useState<'core' | 'all'>('all')
   const [trials, setTrials] = useState(1)
   const [concurrency, setConcurrency] = useState(2)
-  const n = scope === 'all' ? project.tasks.length : project.tasks.filter((t) => t.core).length
+  const nCore = project.tasks.filter((t) => t.core).length
+  const n = scope === 'all' ? project.tasks.length : nCore
   const estTokens = n * trials * project.tokenBudget / Math.max(1, project.tasks.filter((t) => t.core).length) * 1.5
   const sel = 'rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100'
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5" onClick={(e) => e.stopPropagation()}>
-        <h2 className="font-semibold text-white">运行真实模型基准</h2>
+        <h2 className="font-semibold text-white">{L('运行真实模型基准', 'Run real-model benchmark')}</h2>
         <p className="mt-1 text-xs leading-relaxed text-slate-400">
-          用设置页配置的真实模型跑任务集。每道题跑 k 次：pass@1 是平均成功率，pass^k 是“k 次全部成功”的题目占比——它衡量的是可靠性（τ-bench 发现很多 Agent 的 pass^8 远低于 pass@1）。
+          {L(
+            '用设置页配置的真实模型跑任务集。每道题跑 k 次：pass@1 是平均成功率，pass^k 是“k 次全部成功”的题目占比——它衡量的是可靠性（τ-bench 发现很多 Agent 的 pass^8 远低于 pass@1）。',
+            'Runs the task set on the real model configured in Settings. Each task runs k times: pass@1 is the average success rate; pass^k is the share of tasks that succeed in all k runs — a measure of reliability (τ-bench found many agents score far lower on pass^8 than on pass@1).',
+          )}
         </p>
         <div className="mt-4 space-y-3 text-sm text-slate-300">
           <label className="flex items-center justify-between">
-            任务范围
+            {L('任务范围', 'Task set')}
             <select className={sel} value={scope} onChange={(e) => setScope(e.target.value as 'core' | 'all')}>
-              <option value="all">完整集（{project.tasks.length} 题）</option>
-              <option value="core">核心集（{project.tasks.filter((t) => t.core).length} 题）</option>
+              <option value="all">{L(`完整集（${project.tasks.length} 题）`, `Full set (${project.tasks.length} tasks)`)}</option>
+              <option value="core">{L(`核心集（${nCore} 题）`, `Core set (${nCore} tasks)`)}</option>
             </select>
           </label>
           <label className="flex items-center justify-between">
-            每题试验次数 k
+            {L('每题试验次数 k', 'Trials per task (k)')}
             <select className={sel} value={trials} onChange={(e) => setTrials(Number(e.target.value))}>
               {[1, 2, 3, 4, 5].map((k) => (
                 <option key={k}>{k}</option>
@@ -157,7 +164,7 @@ function BenchDialog({ project, onClose, onStart }: { project: ProjectDef; onClo
             </select>
           </label>
           <label className="flex items-center justify-between">
-            并发数
+            {L('并发数', 'Concurrency')}
             <select className={sel} value={concurrency} onChange={(e) => setConcurrency(Number(e.target.value))}>
               {[1, 2, 3, 4, 6, 8].map((k) => (
                 <option key={k}>{k}</option>
@@ -166,14 +173,17 @@ function BenchDialog({ project, onClose, onStart }: { project: ProjectDef; onClo
           </label>
         </div>
         <p className="mt-4 rounded-md bg-amber-950/40 p-2 text-xs text-amber-200">
-          共 {n * trials} 次任务运行，粗略估计约 {Math.round(estTokens / 1000)}k token（按参考解法的消耗估算，你的实现可能更多）。会产生真实费用。
+          {L(
+            `共 ${n * trials} 次任务运行，粗略估计约 ${Math.round(estTokens / 1000)}k token（按参考解法的消耗估算，你的实现可能更多）。会产生真实费用。`,
+            `${n * trials} task runs, roughly ${Math.round(estTokens / 1000)}k tokens (estimated from the reference solution; yours may use more). This costs real money.`,
+          )}
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            取消
+            {L('取消', 'Cancel')}
           </Button>
           <Button variant="primary" onClick={() => onStart({ scope, trials, concurrency })}>
-            开始
+            {L('开始', 'Start')}
           </Button>
         </div>
       </div>
@@ -231,7 +241,7 @@ export function ProjectPage() {
 
   async function start(mode: 'mock' | 'real', opts: { scope: 'core' | 'all'; trials: number; concurrency: number } = { scope: 'core', trials: 1, concurrency: 1 }) {
     const cfg = provider()
-    if (mode === 'real' && !cfg) return alert('真实模型运行需要先在设置页配置 API Key')
+    if (mode === 'real' && !cfg) return alert(L('真实模型运行需要先在设置页配置 API Key', 'Configure an API key in Settings before running on a real model'))
     setBench(false)
     const taskIds = mode === 'real' ? selectTasks(project!, 'real').filter((t) => opts.scope === 'all' || t.core).map((t) => t.id) : undefined
     const list = taskIds ?? selectTasks(project!, 'mock').map((t) => t.id)
@@ -280,7 +290,7 @@ export function ProjectPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <Collapsible open={briefOpen} onToggle={() => setBriefOpen(true)} label="需求与任务">
+      <Collapsible open={briefOpen} onToggle={() => setBriefOpen(true)} label={L('需求与任务', 'Brief & tasks')}>
         <Brief project={project} history={history} comparing={compare} onCompare={toggleCompare} />
       </Collapsible>
       <section className="flex min-w-0 flex-1 flex-col">
@@ -293,20 +303,20 @@ export function ProjectPage() {
             >
               {p.startsWith(dir) && <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />}
               {p.startsWith(dir) ? p.slice('projects/'.length) : p}
-              {borrowed.includes(p) && <span className="text-[10px] text-amber-500">参考</span>}
+              {borrowed.includes(p) && <span className="text-[10px] text-amber-500">{L('参考', 'ref')}</span>}
             </button>
           ))}
           <button
             className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 hover:text-white"
             onClick={() => {
-              const name = prompt(`在 ${dir} 下新建文件（例如 tools.ts）`)?.trim()
+              const name = prompt(L(`在 ${dir} 下新建文件（例如 tools.ts）`, `New file in ${dir} (e.g. tools.ts)`))?.trim()
               if (name && /^[\w./-]+\.ts$/.test(name)) {
                 setFile(dir + name, '')
                 setActive(dir + name)
               }
             }}
           >
-            ＋ 新文件
+            ＋ {L('新文件', 'New file')}
           </button>
         </div>
         <div className="min-h-0 flex-[3]">
@@ -328,22 +338,22 @@ export function ProjectPage() {
         <div className="flex items-center gap-2 border-y border-slate-800 bg-slate-900/60 px-3 py-1.5">
           {runner.running ? (
             <Button variant="danger" onClick={runner.stop}>
-              ■ 停止
+              ■ {L('停止', 'Stop')}
             </Button>
           ) : (
             <>
               <Button variant="primary" onClick={() => start('mock')}>
-                ▶ 运行核心集
+                ▶ {L('运行核心集', 'Run core set')}
               </Button>
-              <Button onClick={() => setBench(true)}>⚡ 运行基准（真实模型）</Button>
+              <Button onClick={() => setBench(true)}>⚡ {L('运行基准（真实模型）', 'Run benchmark (real model)')}</Button>
             </>
           )}
           <div className="flex-1" />
           <Button variant={compare ? 'secondary' : 'ghost'} onClick={toggleCompare}>
-            {compare ? '关闭对照' : '对照参考解法'}
+            {compare ? L('关闭对照', 'Close comparison') : L('对照参考解法', 'Compare with reference')}
           </Button>
           <Button variant="ghost" onClick={exportZip} disabled={busyExport}>
-            {busyExport ? '打包中…' : '⬇ 导出项目'}
+            {busyExport ? L('打包中…', 'Packing…') : L('⬇ 导出项目', '⬇ Export project')}
           </Button>
         </div>
         <div className="flex min-h-0 flex-[2] flex-col">
@@ -361,11 +371,13 @@ export function ProjectPage() {
                       Token {r.summary.totalTokens}
                       {r.mode === 'mock' && <span className="text-slate-600"> / ★★★ ≤{project.tokenBudget}</span>}
                     </span>
-                    <span className="text-slate-400">费用 {money(r.summary.costUsd)}</span>
+                    <span className="text-slate-400">
+                      {L('费用', 'Cost')} {money(r.summary.costUsd)}
+                    </span>
                     <span className="text-slate-400">p50 {Math.round(r.summary.p50Ms)}ms · p95 {Math.round(r.summary.p95Ms)}ms</span>
-                    {r.mode === 'mock' && r.stars === 0 && <span className="text-amber-300">及格线：核心通过率 ≥ {pct(project.passThreshold)}</span>}
+                    {r.mode === 'mock' && r.stars === 0 && <span className="text-amber-300">{L('及格线：核心通过率 ≥ ', 'Pass mark: core pass rate ≥ ')}{pct(project.passThreshold)}</span>}
                     <Link to="/projects" className="ml-auto text-violet-300 hover:underline">
-                      返回项目墙
+                      {L('返回项目墙', 'Back to projects')}
                     </Link>
                   </>
                 )
@@ -373,7 +385,7 @@ export function ProjectPage() {
             </div>
           )}
           {!keys.length ? (
-            <div className="grid flex-1 place-items-center text-sm text-slate-500">点击「运行核心集」查看评分卡</div>
+            <div className="grid flex-1 place-items-center text-sm text-slate-500">{L('点击「运行核心集」查看评分卡', 'Click "Run core set" to see the scorecard')}</div>
           ) : (
             <div className="flex min-h-0 flex-1">
               <ul className="w-64 shrink-0 overflow-y-auto border-r border-slate-800 py-1">

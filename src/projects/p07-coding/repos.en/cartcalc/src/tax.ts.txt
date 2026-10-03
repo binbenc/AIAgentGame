@@ -1,0 +1,5 @@
+/** Tax in cents, rounded to the nearest cent. rate 0.13 means 13% */
+export function taxFor(cents: number, rate: number): number {
+  if (rate < 0) throw new RangeError(`Tax rate cannot be negative: ${rate}`)
+  return Math.round(cents * rate)
+}

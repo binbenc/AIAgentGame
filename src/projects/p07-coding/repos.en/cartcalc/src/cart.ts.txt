@@ -1,0 +1,12 @@
+import type { LineItem } from './types'
+
+/** Cart subtotal (cents). Quantity must be a positive integer; unit price must be a non-negative integer (cents). */
+export function subtotal(items: LineItem[]): number {
+  let sum = 0
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new RangeError(`Invalid quantity for ${item.sku}: ${item.quantity}`)
+    if (!Number.isInteger(item.unitPrice) || item.unitPrice < 0) throw new RangeError(`Invalid unit price for ${item.sku}: ${item.unitPrice}`)
+    sum += item.unitPrice * item.quantity
+  }
+  return sum
+}

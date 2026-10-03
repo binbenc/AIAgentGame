@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { formatDate } from '../src/format'
+
+test('default format', () => {
+  expect(formatDate({ year: 2024, month: 1, day: 5 })).toBe('2024-01-05')
+})
+
+test('custom format', () => {
+  expect(formatDate({ year: 2024, month: 12, day: 25 }, 'YYYY/M/D')).toBe('2024/12/25')
+  expect(formatDate({ year: 2024, month: 3, day: 7 }, 'D.M.')).toBe('7.3.')
+})
+
+test('two-digit padding', () => {
+  expect(formatDate({ year: 2024, month: 3, day: 7 }, 'MM/DD')).toBe('03/07')
+})

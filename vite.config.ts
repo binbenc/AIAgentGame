@@ -14,5 +14,10 @@ export default defineConfig({
     include: process.env.SCRIPT ? [`scripts/${process.env.SCRIPT}.test.ts`] : ['tests/**/*.test.ts'],
     environment: 'node',
     testTimeout: 20000,
+    // Integrity tests run once per locale (content picks its language at module load: src/engine/locale.ts).
+    // Scripts (SCRIPT=...) run once, in AQ_LOCALE (default en).
+    projects: process.env.SCRIPT
+      ? undefined
+      : (['en', 'zh'] as const).map((locale) => ({ extends: true as const, test: { name: locale, env: { AQ_LOCALE: locale } } })),
   },
 })

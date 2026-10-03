@@ -9,6 +9,7 @@
  * - 同步死循环没法从内部打断：会卡住整个运行，直到外层（浏览器 Worker）超时。
  *   这正是生产环境要把模型写的代码放进独立进程 / 容器、并设置 CPU 和时间上限的原因。
  */
+import { L } from '../../../engine/locale'
 import { createModuleSystem } from '../../../engine/sandbox/loader'
 
 export const MAX_OUTPUT = 4000
@@ -86,7 +87,8 @@ export function runInSandbox(code: string, data: Record<string, string>): string
   const dataModule = {
     datasets: () => Object.keys(data),
     raw: (name: string) => {
-      if (!(name in data)) throw new Error(`数据集不存在：${name}。可用的数据集：${Object.keys(data).join(', ')}`)
+      if (!(name in data))
+        throw new Error(L(`数据集不存在：${name}。可用的数据集：${Object.keys(data).join(', ')}`, `No such dataset: ${name}. Available datasets: ${Object.keys(data).join(', ')}`))
       return data[name]
     },
     load: (name: string) => parseCsv(dataModule.raw(name)),
@@ -96,9 +98,10 @@ export function runInSandbox(code: string, data: Record<string, string>): string
     const modules = createModuleSystem({ 'analysis.ts': `const console = require('@console'); ${code}` }, { data: dataModule, '@console': consoleShim })
     modules.require('analysis.ts')
   } catch (e) {
-    lines.push(`错误：${errorText(e)}`)
+    lines.push(`${L('错误：', 'Error: ')}${errorText(e)}`)
   }
   let out = lines.join('\n')
-  if (out.length > MAX_OUTPUT || cut) out = `${out.slice(0, MAX_OUTPUT)}\n……（输出过长，已截断。只打印需要的汇总结果，不要打印整张表）`
-  return out || '（代码运行完毕，没有任何输出。用 console.log 打印结果）'
+  if (out.length > MAX_OUTPUT || cut)
+    out = `${out.slice(0, MAX_OUTPUT)}\n${L('……（输出过长，已截断。只打印需要的汇总结果，不要打印整张表）', '... (output too long, truncated. Print only the summary you need, not whole tables)')}`
+  return out || L('（代码运行完毕，没有任何输出。用 console.log 打印结果）', '(The code ran but printed nothing. Use console.log to print the result)')
 }

@@ -6,8 +6,15 @@ import JSZip from 'jszip'
 import { engineFiles, nodeRuntime } from '../export/buildZip'
 import type { SaveData } from '../state/progress'
 import type { ProjectDef } from './types'
+import { L } from '../engine/locale'
 
-const sources = import.meta.glob(['./*.ts', './shared/**/*', './p*/**/*', '!./registry.ts', '!./exportProject.ts', '!./p*/starter/**', '!./p*/solution/**'], {
+/** Words used in the generated benchmark report */
+const R = L(
+  { title: '基准报告', time: '时间：', model: '模型：', tasks: '任务：', avg: '平均每题', cost: '费用估算：', unknown: '未知模型价格', latency: '延迟：', header: '| 任务 | 试验 | 结果 | Token | 原因 |' },
+  { title: 'Benchmark report', time: 'Time: ', model: 'Model: ', tasks: 'Tasks: ', avg: 'avg per task', cost: 'estimated cost: ', unknown: 'unknown model price', latency: 'Latency: ', header: '| Task | Trial | Result | Tokens | Reason |' },
+)
+
+const sources = import.meta.glob(['./*.ts', './shared/**/*', './p*/**/*', '!./registry.ts', '!./exportProject.ts', '!./p*/starter/**', '!./p*/solution/**', '!./p*/starter.en/**', '!./p*/solution.en/**'], {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -36,7 +43,7 @@ export function projectFileList(project: ProjectDef, save: Pick<SaveData, 'files
       private: true,
       version: '1.0.0',
       type: 'module',
-      description: `${project.title}（原型：${project.prototype.name}）`,
+      description: `${project.title} (${L('原型', 'modeled on')}: ${project.prototype.name})`,
       scripts: { test: 'vitest run tests', bench: 'AQ_BENCH=1 vitest run bench', typecheck: 'tsc --noEmit' },
       dependencies: { '@anthropic-ai/sdk': '^0.131.0', 'sql.js': '^1.14.2', sucrase: '^3.35.1', zod: '^4.6.5' },
       devDependencies: { '@types/node': '^24.19.1', '@types/sql.js': '^1.4.11', typescript: '^5.9.3', vitest: '^5.0.3' },
@@ -78,10 +85,10 @@ LLM_API_KEY=
 LLM_BASE_URL=
 LLM_MODEL_DEFAULT=claude-opus-5-5
 LLM_MODEL_FAST=claude-haiku-4-5
-# 基准参数
+# ${L('基准参数', 'Benchmark settings')}
 BENCH_K=1
 BENCH_CONCURRENCY=2
-# 只跑部分任务（逗号分隔的任务 id），留空跑完整集
+# ${L('只跑部分任务（逗号分隔的任务 id），留空跑完整集', 'Run only some tasks (comma-separated task ids); leave empty for the full set')}
 BENCH_TASKS=
 `
   out['tests/workspace.ts'] = `import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -99,21 +106,21 @@ export function readWorkspace(dir = SRC, out: Record<string, string> = {}): Reco
   return out
 }
 `
-  out['tests/project.test.ts'] = `/** 模拟模型核心集：确定性、免费，适合放进 CI 做回归 */
+  out['tests/project.test.ts'] = `/** ${L('模拟模型核心集：确定性、免费，适合放进 CI 做回归', 'Mock-model core set: deterministic and free, good for CI regression')} */
 import { expect, it } from 'vitest'
 import { project } from '../aq/projects/${dir}/index'
 import { runProject } from '../aq/projects/runner'
 import { readWorkspace } from './workspace'
 
-it('核心任务集全部通过', async () => {
+it('${L('核心任务集全部通过', 'all core tasks pass')}', async () => {
   const r = await runProject({ project, files: readWorkspace(), mode: 'mock' })
   const failed = r.results.filter((x) => x.status !== 'passed').map((x) => \`[\${x.taskId}] \${x.reason}\`)
   expect(failed.join('\\n')).toBe('')
 })
 `
   out['bench/bench.test.ts'] = `/**
- * 真实模型基准：npm run bench（参数见 .env 里的 BENCH_*）。
- * 报告写到 reports/，包含逐题结果、pass@1、pass^k、token 和费用估算。
+ * ${L('真实模型基准：npm run bench（参数见 .env 里的 BENCH_*）。', 'Real-model benchmark: npm run bench (settings: BENCH_* in .env).')}
+ * ${L('报告写到 reports/，包含逐题结果、pass@1、pass^k、token 和费用估算。', 'Reports go to reports/: per-task results, pass@1, pass^k, tokens and estimated cost.')}
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { it } from 'vitest'
@@ -144,16 +151,16 @@ it('benchmark', async () => {
   })
   const s = r.summary
   const lines = [
-    \`# \${project.title} · 基准报告\`,
+    \`# \${project.title} · ${R.title}\`,
     '',
-    \`- 时间：\${new Date().toISOString()}\`,
-    \`- 模型：\${cfg.models.default}（fast：\${cfg.models.fast}）\`,
-    \`- 任务：\${s.tasks} 题 × \${s.trials} 次\`,
-    \`- pass@1：\${(s.passAt1 * 100).toFixed(1)}%\${s.trials > 1 ? \` · pass^\${s.trials}：\${(s.passHatK * 100).toFixed(1)}%\` : ''}\`,
-    \`- Token：\${s.totalTokens}（平均每题 \${s.avgTokensPerTask}）· 费用估算：\${s.costUsd === null ? '未知模型价格' : '$' + s.costUsd.toFixed(4)}\`,
-    \`- 延迟：p50 \${Math.round(s.p50Ms)}ms · p95 \${Math.round(s.p95Ms)}ms\`,
+    \`- ${R.time}\${new Date().toISOString()}\`,
+    \`- ${R.model}\${cfg.models.default} (fast: \${cfg.models.fast})\`,
+    \`- ${R.tasks}\${s.tasks} × \${s.trials}\`,
+    \`- pass@1: \${(s.passAt1 * 100).toFixed(1)}%\${s.trials > 1 ? \` · pass^\${s.trials}: \${(s.passHatK * 100).toFixed(1)}%\` : ''}\`,
+    \`- Token: \${s.totalTokens} (${R.avg} \${s.avgTokensPerTask}) · ${R.cost}\${s.costUsd === null ? '${R.unknown}' : '$' + s.costUsd.toFixed(4)}\`,
+    \`- ${R.latency}p50 \${Math.round(s.p50Ms)}ms · p95 \${Math.round(s.p95Ms)}ms\`,
     '',
-    '| 任务 | 试验 | 结果 | Token | 原因 |',
+    '${R.header}',
     '|---|---|---|---|---|',
     ...r.results.map((t) => \`| \${t.taskId} | \${t.trial} | \${t.status} | \${t.inputTokens + t.outputTokens} | \${t.reason.replace(/\\|/g, '/').slice(0, 120)} |\`),
   ]
@@ -164,7 +171,8 @@ it('benchmark', async () => {
   console.log(lines.slice(0, 8).join('\\n'))
 })
 `
-  out['README.md'] = `# ${project.title}
+  out['README.md'] = L(
+    `# ${project.title}
 
 > 甲方：${project.client} · 原型：[${project.prototype.name}](${project.prototype.url})
 
@@ -192,7 +200,37 @@ npm run bench          # 真实模型跑完整基准，报告写到 reports/
 1. 把 \`aq/projects/${dir}/\` 里的环境 API 换成你们真实系统的接口（保持函数签名不变）。
 2. 把真实流量里的失败案例补进任务集（\`tasks.ts\`），持续跑基准，看 pass@1 / pass^k / 成本的趋势。
 3. 参考 \`aq/projects/${dir}/guide.md\` 的生产要点逐项检查。
-${save.borrowed.length ? `\n> 注意：以下关卡模块来自参考实现（跳关自动补齐）：${save.borrowed.map((b) => '`src/' + b + '`').join('、')}\n` : ''}`
+${save.borrowed.length ? `\n> 注意：以下关卡模块来自参考实现（跳关自动补齐）：${save.borrowed.map((b) => '`src/' + b + '`').join('、')}\n` : ''}`,
+    `# ${project.title}
+
+> Client: ${project.client} · Modeled on: [${project.prototype.name}](${project.prototype.url})
+
+A project I built in **Agent Quest**. ${project.tagline}.
+
+\`\`\`bash
+npm install
+npm test               # mock-model core set (deterministic, CI-friendly)
+cp .env.example .env   # add your API key
+npm run bench          # full benchmark on a real model; reports go to reports/
+\`\`\`
+
+## Layout
+
+| Path | Contents |
+|---|---|
+| \`${'src/' + project.entry}\` | Entry: \`${project.contract.replace(/\n/g, ' ')}\` |
+| other files in \`src/\` | The agent codebase I wrote in the levels (reused by this project) |
+| \`aq/projects/${dir}/\` | Environment, task set, graders, brief (brief.en.md) and production notes (guide.en.md) |
+| \`aq/engine/\` | The agent-quest runtime: unified message format, Anthropic / OpenAI adapters, gateway, mock model |
+| \`tests/\` · \`bench/\` | Regression tests · benchmark script |
+
+## Turning it into a production service
+
+1. Swap the environment APIs in \`aq/projects/${dir}/\` for your real systems (keep the function signatures).
+2. Add failures from real traffic to the task set (\`tasks.ts\`) and keep benchmarking — watch pass@1 / pass^k / cost over time.
+3. Go through the production notes in \`aq/projects/${dir}/guide.en.md\` item by item.
+${save.borrowed.length ? `\n> Note: these level modules came from the reference solutions (filled in when levels were skipped): ${save.borrowed.map((b) => '`src/' + b + '`').join(', ')}\n` : ''}`,
+  )
   return out
 }
 

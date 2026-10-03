@@ -1,0 +1,10 @@
+import { expect, test } from 'testkit'
+import { renderMarkdown } from '../src/block'
+
+test('7 #s is not a heading', () => {
+  expect(renderMarkdown('####### seven')).toBe('<p>####### seven</p>')
+})
+
+test('6 #s is h6', () => {
+  expect(renderMarkdown('###### six')).toBe('<h6>six</h6>')
+})

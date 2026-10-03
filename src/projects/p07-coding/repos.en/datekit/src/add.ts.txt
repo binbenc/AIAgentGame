@@ -1,0 +1,43 @@
+import { daysInMonth, type SimpleDate } from './date'
+
+/** Last day of the month */
+export function endOfMonth(d: SimpleDate): SimpleDate {
+  return { year: d.year, month: d.month, day: daysInMonth(d.year, d.month) }
+}
+
+/** Add n days (n may be negative) */
+export function addDays(d: SimpleDate, n: number): SimpleDate {
+  let { year, month } = d
+  let day = d.day + n
+  // roll forward into later months
+  while (day > daysInMonth(year, month)) {
+    day -= daysInMonth(year, month)
+    month++
+    if (month > 12) {
+      month = 1
+      year++
+    }
+  }
+  // roll back into earlier months
+  while (day < 1) {
+    month--
+    if (month < 1) {
+      month = 12
+      year--
+    }
+    day += daysInMonth(year, month)
+  }
+  return { year, month, day }
+}
+
+/**
+ * Add n months (n may be negative).
+ * If the target month has no such day, use its last day: Jan 31 + 1 month = Feb 28 (29 in leap years).
+ */
+export function addMonths(d: SimpleDate, n: number): SimpleDate {
+  const zeroBased = d.month - 1 + n
+  const year = d.year + Math.floor(zeroBased / 12)
+  const month = (((zeroBased % 12) + 12) % 12) + 1
+  const day = Math.min(d.day, daysInMonth(year, month))
+  return { year, month, day }
+}

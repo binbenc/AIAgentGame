@@ -1,0 +1,22 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+
+test('bold', () => {
+  expect(renderInline('**bold**')).toBe('<strong>bold</strong>')
+})
+
+test('asterisk italic', () => {
+  expect(renderInline('*em*')).toBe('<em>em</em>')
+})
+
+test('underscore italic', () => {
+  expect(renderInline('_italic_')).toBe('<em>italic</em>')
+})
+
+test('inline code', () => {
+  expect(renderInline('run `npm test` now')).toBe('run <code>npm test</code> now')
+})
+
+test('text is escaped', () => {
+  expect(renderInline('a & b')).toBe('a &amp; b')
+})

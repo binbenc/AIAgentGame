@@ -14,6 +14,7 @@ import { CodeEditor } from '../editor/CodeEditor'
 import { CompareView } from '../editor/CompareView'
 import { TracePanel } from '../trace/TracePanel'
 import { useRunner, type LiveScenario } from './useRunner'
+import { L } from '../../engine/locale'
 
 type Tab = 'story' | 'task' | 'knowledge' | 'hints'
 
@@ -39,7 +40,10 @@ function Brief({ level }: { level: LevelDef }) {
       <div className="border-b border-slate-800 px-4 pb-3 pt-4">
         <div className="flex items-center justify-between text-xs text-slate-500">
           <span>
-            第 {level.number} 关 · 第 {level.chapter <= 5 ? level.chapter : '终'} 章
+            {L(
+              `第 ${level.number} 关 · 第 ${level.chapter <= 5 ? level.chapter : '终'} 章`,
+              `Level ${level.number} · ${level.chapter <= 5 ? `Chapter ${level.chapter}` : 'Finale'}`,
+            )}
           </span>
           <Stars n={progress?.stars ?? 0} size="text-sm" />
         </div>
@@ -63,7 +67,7 @@ function Brief({ level }: { level: LevelDef }) {
           <>
             <Markdown>{level.story}</Markdown>
             <Button variant="primary" className="mt-4" onClick={() => setTab('task')}>
-              查看任务 →
+              {L('查看任务 →', 'See the task →')}
             </Button>
           </>
         )}
@@ -73,7 +77,7 @@ function Brief({ level }: { level: LevelDef }) {
           <div className="space-y-3">
             {level.hints.slice(0, shown).map((h, i) => (
               <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                <div className="mb-1 text-[11px] font-semibold text-amber-400">提示 {i + 1}</div>
+                <div className="mb-1 text-[11px] font-semibold text-amber-400">{L('提示', 'Hint')} {i + 1}</div>
                 <Markdown>{h}</Markdown>
               </div>
             ))}
@@ -131,7 +135,7 @@ function Results({ level, runner }: { level: LevelDef; runner: ReturnType<typeof
           )}
           {result?.passed && !next && (
             <Link to="/graduate" className="rounded-md bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-500">
-              去毕业 →
+              {L('去毕业 →', 'Graduate →')}
             </Link>
           )}
         </div>
@@ -226,7 +230,7 @@ export function LevelPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <Collapsible open={briefOpen} onToggle={() => setBriefOpen(true)} label="剧情与任务">
+      <Collapsible open={briefOpen} onToggle={() => setBriefOpen(true)} label={L('剧情与任务', 'Story & task')}>
         <Brief level={level} />
       </Collapsible>
       <section className="flex min-w-0 flex-1 flex-col">
@@ -240,7 +244,7 @@ export function LevelPage() {
             >
               {focus.has(p) && <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />}
               {p}
-              {borrowed.includes(p) && <span className="text-[10px] text-amber-500">参考</span>}
+              {borrowed.includes(p) && <span className="text-[10px] text-amber-500">{L('参考', 'ref')}</span>}
             </button>
           ))}
         </div>
@@ -270,7 +274,7 @@ export function LevelPage() {
               <Button variant="primary" onClick={() => start('mock')}>
                 ▶ {t('level.run')}
               </Button>
-              <Button onClick={() => start('real')} title="用你在设置页配置的真实模型运行（不含依赖模拟故障的场景）">
+              <Button onClick={() => start('real')} title={L('用你在设置页配置的真实模型运行（不含依赖模拟故障的场景）', 'Run on the real model configured in Settings (skips scenarios that rely on injected mock failures)')}>
                 ⚡ {t('level.runReal')}
               </Button>
             </>

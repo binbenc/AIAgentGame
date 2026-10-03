@@ -1,6 +1,15 @@
 {
-  "app": { "name": "Agent Quest", "tagline": "AI Agent 工程闯关" },
-  "nav": { "map": "关卡地图", "settings": "设置", "graduate": "毕业", "projects": "实战项目", "home": "首页" },
+  "app": {
+    "name": "Agent Quest",
+    "tagline": "AI Agent 工程闯关"
+  },
+  "nav": {
+    "map": "关卡地图",
+    "settings": "设置",
+    "graduate": "毕业",
+    "projects": "实战项目",
+    "home": "首页"
+  },
   "home": {
     "start": "开始入职",
     "continue": "继续闯关",
@@ -51,6 +60,8 @@
     "export": "导出存档",
     "import": "导入存档",
     "reset": "清空进度",
-    "resetConfirm": "确定清空全部进度和代码？此操作不可恢复。"
+    "resetConfirm": "确定清空全部进度和代码？此操作不可恢复。",
+    "language": "语言",
+    "languageHelp": "切换后页面会重新加载。代码和进度都会保留；已经写好的代码保持原来的语言。"
   }
 }

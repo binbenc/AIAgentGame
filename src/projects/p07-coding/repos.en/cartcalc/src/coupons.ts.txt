@@ -1,0 +1,29 @@
+import type { Coupon } from './types'
+
+export interface CouponResult {
+  /** Amount after discounts (cents) */
+  total: number
+  /** Coupons that were actually applied */
+  applied: string[]
+}
+
+/** Amount after discounts (cents); rules are in the README */
+export function applyCoupons(subtotal: number, coupons: Coupon[]): CouponResult {
+  const applied: string[] = []
+  let total = subtotal
+
+  const percents = coupons.filter((c) => c.kind === 'percent')
+  if (percents.length > 0) {
+    const best = percents.reduce((a, b) => (b.value > a.value ? b : a))
+    total = Math.round((total * (100 - best.value)) / 100)
+    applied.push(best.code)
+  }
+
+  for (const c of coupons) {
+    if (c.kind !== 'fixed') continue
+    if (c.minSpend !== undefined && subtotal < c.minSpend) continue
+    total -= c.value
+    applied.push(c.code)
+  }
+  return { total: Math.max(0, total), applied }
+}

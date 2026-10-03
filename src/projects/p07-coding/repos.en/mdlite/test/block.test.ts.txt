@@ -1,0 +1,19 @@
+import { expect, test } from 'testkit'
+import { renderMarkdown } from '../src/block'
+
+test('headings', () => {
+  expect(renderMarkdown('# Title')).toBe('<h1>Title</h1>')
+  expect(renderMarkdown('## Sub')).toBe('<h2>Sub</h2>')
+})
+
+test('paragraph', () => {
+  expect(renderMarkdown('hello')).toBe('<p>hello</p>')
+})
+
+test('list followed by a paragraph', () => {
+  expect(renderMarkdown('- a\n- b\n\ntext')).toBe('<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n<p>text</p>')
+})
+
+test('inline formatting in a heading', () => {
+  expect(renderMarkdown('# **Big** news')).toBe('<h1><strong>Big</strong> news</h1>')
+})

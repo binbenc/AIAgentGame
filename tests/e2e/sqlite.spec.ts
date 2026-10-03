@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('sql.js 能在浏览器 Worker 里运行', async ({ page }) => {
+test('sql.js runs inside a browser worker', async ({ page }) => {
   await page.goto('/')
   const result = await page.evaluate(async () => {
     const src = `

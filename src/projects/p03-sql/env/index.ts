@@ -5,6 +5,7 @@
  * 和很多真实的数据库连接一样，“只读”不是环境替你保证的，而是你的 Agent 要自己做到的。
  * 判定器会检查任务结束时数据库有没有被改过。
  */
+import { L } from '../../../engine/locale'
 import { loadSqlite, type Database } from '../../shared/sqlite'
 import type { EnvCtx } from '../../types'
 import { seed, TABLES } from './data'
@@ -65,7 +66,7 @@ export function fingerprint(db: Database): string {
       const sums = db.exec(`SELECT ${cols.map((c) => `TOTAL(CASE WHEN typeof(${c}) IN ('integer', 'real') THEN ${c} ELSE LENGTH(${c}) END)`).join(', ')} FROM ${row[0]}`)
       parts.push(sums[0].values[0].join(','))
     } catch {
-      parts.push('（结构被修改）')
+      parts.push(L('（结构被修改）', '(schema changed)'))
     }
   }
   return parts.join('\n')
@@ -92,7 +93,7 @@ export async function createSqlEnv(ctx: EnvCtx): Promise<SqlTaskEnv> {
     describeTable: ctx.traced('describeTable', async (name: string) => {
       await ctx.delay(10)
       const t = String(name ?? '').trim()
-      if (!tables().includes(t)) throw new Error(`表不存在：${t || '（空）'}。现有的表：${tables().join(', ')}`)
+      if (!tables().includes(t)) throw new Error(L(`表不存在：${t || '（空）'}。现有的表：${tables().join(', ')}`, `No such table: ${t || '(empty)'}. Tables: ${tables().join(', ')}`))
       return (db.exec(`PRAGMA table_info(${t})`)[0]?.values ?? []).map((r) => ({ column: String(r[1]), type: String(r[2]) }))
     }),
     dataDictionary: ctx.traced('dataDictionary', async () => {
@@ -101,11 +102,11 @@ export async function createSqlEnv(ctx: EnvCtx): Promise<SqlTaskEnv> {
     }),
     query: ctx.traced('query', async (sql: string) => {
       await ctx.delay(50)
-      if (typeof sql !== 'string' || !sql.trim()) throw new Error('sql 必须是非空字符串')
+      if (typeof sql !== 'string' || !sql.trim()) throw new Error(L('sql 必须是非空字符串', 'sql must be a non-empty string'))
       try {
         return execRows(db, sql, MAX_ROWS)
       } catch (e) {
-        throw new Error(`SQL 执行出错：${(e as Error).message}`)
+        throw new Error(L(`SQL 执行出错：${(e as Error).message}`, `SQL error: ${(e as Error).message}`))
       }
     }),
   }

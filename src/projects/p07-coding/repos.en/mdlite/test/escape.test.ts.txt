@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { escapeHtml } from '../src/escape'
+
+test('escapes &', () => {
+  expect(escapeHtml('Tom & Jerry')).toBe('Tom &amp; Jerry')
+})
+
+test('escapes quotes', () => {
+  expect(escapeHtml('say "hi"')).toBe('say &quot;hi&quot;')
+})
+
+test('plain text is unchanged', () => {
+  expect(escapeHtml('hello world')).toBe('hello world')
+})

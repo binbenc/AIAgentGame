@@ -10,6 +10,7 @@ import {
   type StreamEvent,
 } from '../types'
 import { resolveModel, viaProxy, type ProviderConfig, type WireListener } from './config'
+import { L } from '../../locale'
 
 /* OpenAI Chat Completions 协议的最小类型 */
 interface OAIToolCall {
@@ -131,7 +132,7 @@ export class OpenAIProvider implements Provider {
       })
     } catch (e) {
       if (signal?.aborted) throw new AbortError()
-      throw new LLMError(`网络错误（若是 CORS 问题，请在设置里启用本地代理）：${(e as Error).message}`, 0, true)
+      throw new LLMError(`${L('网络错误（若是 CORS 问题，请在设置里启用本地代理）：', 'Network error (if this is CORS, enable the local proxy in Settings): ')}${(e as Error).message}`, 0, true)
     }
     if (!res.ok) {
       const text = await res.text().catch(() => '')

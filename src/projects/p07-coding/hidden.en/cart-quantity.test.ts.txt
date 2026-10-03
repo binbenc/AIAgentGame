@@ -1,0 +1,20 @@
+import { expect, test } from 'testkit'
+import { subtotal } from '../src/cart'
+
+const item = { sku: 'PEN', name: 'Fountain pen', unitPrice: 1250, quantity: 1 }
+
+test('throws on quantity 0', () => {
+  expect(() => subtotal([{ ...item, quantity: 0 }])).toThrow('Invalid quantity')
+})
+
+test('throws on negative quantity', () => {
+  expect(() => subtotal([{ ...item, quantity: -2 }])).toThrow('Invalid quantity')
+})
+
+test('throws on fractional quantity', () => {
+  expect(() => subtotal([{ ...item, quantity: 1.5 }])).toThrow('Invalid quantity')
+})
+
+test('valid quantities still work', () => {
+  expect(subtotal([{ ...item, quantity: 3 }])).toBe(3750)
+})

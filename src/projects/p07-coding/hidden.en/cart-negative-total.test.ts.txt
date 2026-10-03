@@ -1,0 +1,16 @@
+import { expect, test } from 'testkit'
+import { applyCoupons } from '../src/coupons'
+import { checkout } from '../src/checkout'
+
+const BIG = { code: 'GIFT100', kind: 'fixed' as const, value: 10000 }
+
+test('amount after discounts is never below 0', () => {
+  expect(applyCoupons(5000, [BIG]).total).toBe(0)
+})
+
+test('checkout: gift card larger than the order', () => {
+  const r = checkout([{ sku: 'PEN', name: 'Fountain pen', unitPrice: 5000, quantity: 1 }], [BIG], 0.13)
+  expect(r.total).toBe(0)
+  expect(r.tax).toBe(0)
+  expect(r.discount).toBe(5000)
+})

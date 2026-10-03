@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { parseDate } from '../src/date'
+
+test('no Feb 29 in a common year', () => {
+  expect(() => parseDate('2023-02-29')).toThrow()
+})
+
+test('no Apr 31', () => {
+  expect(() => parseDate('2024-04-31')).toThrow()
+})
+
+test('Feb 29 in a leap year is valid', () => {
+  expect(parseDate('2024-02-29')).toEqual({ year: 2024, month: 2, day: 29 })
+})

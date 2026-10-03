@@ -2,13 +2,15 @@
  * Nova 科技帮助中心文档：RAG 相关关卡共用的知识库。
  * 每篇文档有稳定的 id，回答时用 [id#块编号] 标注出处。
  */
+import { L } from '../../engine/locale'
+
 export interface Doc {
   id: string
   title: string
   text: string
 }
 
-export const NOVA_DOCS: Doc[] = [
+const NOVA_DOCS_ZH: Doc[] = [
   {
     id: 'faq-warranty',
     title: '保修政策',
@@ -65,3 +67,63 @@ export const NOVA_DOCS: Doc[] = [
     text: 'Nova 设备的使用数据经过加密后存储在国内的数据中心。门锁的开锁记录只保存在用户账号下，Nova 员工无权查看。摄像头类设备的视频默认只在本地存储，开通云存储后才会上传。用户可以在 App 中导出个人数据，或申请删除全部数据。Nova 不会向第三方出售用户数据。',
   },
 ]
+
+const NOVA_DOCS_EN: Doc[] = [
+  {
+    id: 'faq-warranty',
+    title: 'Warranty policy',
+    text: "The warranty on every Nova product starts on the day it is delivered. Smart AC X1: 3 years on the whole unit, 10 years on the compressor. Smart Lock L2: 2 years on the whole unit, 3 years on electronic components. Robot Vacuum R5: 2 years on the whole unit, 1 year on the battery; the main brush, side brush and filter are consumables and not covered. No paper invoice is needed: the order record in your Nova account is enough to file a claim. Damage caused by misuse, unauthorized disassembly or water is not covered.",
+  },
+  {
+    id: 'faq-returns',
+    title: 'Returns and refunds',
+    text: 'Items can be returned for any reason within 7 days of delivery, as long as they are undamaged and complete with all accessories. For returns due to quality issues, Nova pays shipping both ways; for no-reason returns, the customer pays return shipping. Orders that have shipped but not been delivered cannot be cancelled; request a return after delivery instead. Refunds go back to the original payment method after the warehouse inspects the item, usually within 3 to 5 business days. VIP refunds are prioritized and completed within 1 business day.',
+  },
+  {
+    id: 'faq-shipping',
+    title: 'Shipping',
+    text: 'Orders ship within 48 hours of payment, by SF Express or JD Logistics by default. Delivery to remote areas may take 2 to 3 extra days. Large items (Smart AC X1) are delivered to your door by appointment, and the carrier will call before delivery. Once an order ships, you can track it on the "My Orders" page in the app. To change the shipping address, contact online support before the order ships.',
+  },
+  {
+    id: 'faq-offline',
+    title: 'Troubleshooting offline devices',
+    text: 'If the app shows a device as offline, go through these steps. Step 1: make sure the device is powered and its indicator light looks normal. Step 2: make sure your home router is online. Step 3: Nova devices only support 2.4GHz Wi-Fi; if your router merges both bands under one name, split the 2.4G and 5G networks in the router settings. Step 4: in the app, long-press the device card and choose "Reconnect to Wi-Fi". If it is still offline, contact online support with the device serial number.',
+  },
+  {
+    id: 'x1-manual',
+    title: 'Smart AC X1 user manual',
+    text: 'The Smart AC X1 has four modes: cooling, heating, dehumidifying and fan, with a temperature range of 16 to 30 degrees. It can be controlled from the Nova App, the remote, or by voice through Xiaodu and Tmall Genie speakers. Sleep mode raises the temperature by 1 degree every hour after you fall asleep. Clean the X1 filter every two weeks: rinse it with clean water and let it dry in the shade, never in direct sunlight. Keep the area within 50 cm of the outdoor unit clear.',
+  },
+  {
+    id: 'l2-manual',
+    title: 'Smart Lock L2 user manual',
+    text: 'The Smart Lock L2 unlocks five ways: fingerprint, passcode, NFC card, mechanical key and remotely from the app. It stores up to 100 fingerprints and 50 passcodes. The L2 runs on 8 AA batteries, which last about 10 to 12 months in normal use; the app sends a reminder when the battery drops below 20%. If the batteries run out, plug a power bank into the Type-C emergency port at the bottom of the lock for temporary power, then open the door with a fingerprint or passcode. If someone tries to force the lock, it sounds an alarm of about 85 decibels and sends an alert to your phone.',
+  },
+  {
+    id: 'r5-manual',
+    title: 'Robot Vacuum R5 user manual',
+    text: 'The Robot Vacuum R5 uses laser navigation and maps your home automatically on its first run; once the map is ready you can split it into rooms and set no-go zones in the app. When the battery drops below 15%, the R5 returns to its dock on its own. A full charge takes about 4 hours and gives about 150 minutes of runtime. Empty the dustbin after every cleaning, and remove hair wrapped around the main brush once a week. If you have pets, turn on "Pet mode" in the app to boost suction and avoid pet waste.',
+  },
+  {
+    id: 'bulb-manual',
+    title: 'Smart Bulb Kit user manual',
+    text: 'The Smart Bulb Kit includes 4 E27 screw-base bulbs, 9 watts each, with 16 million colors and a color temperature range of 2700K to 6500K. After powering a bulb on for the first time, switch it off and on 3 times in a row to enter pairing mode. In the app you can set on/off schedules, sunrise wake-up and music sync effects. The bulbs are not suitable for damp places such as bathrooms, and cannot be used with dimmer switches.',
+  },
+  {
+    id: 'app-account',
+    title: 'Accounts and family sharing',
+    text: 'You can sign up and log in to the Nova App with a phone number. A household can invite up to 10 members. Members can control every device in the home, but only the household admin can remove devices or edit automations. Send an invite link from "Me → Household"; the link is valid for 24 hours. To delete your account, submit a request under "Settings → Account & Security"; your data is permanently deleted 15 days later.',
+  },
+  {
+    id: 'install-service',
+    title: 'Installation service',
+    text: 'Free in-home installation is available for the Smart AC X1 and Smart Lock L2. An installer will call to schedule a visit within 24 hours of delivery. Visits can be booked from 9:00 to 21:00 every day, including weekends and public holidays. Lock installation requires a door thickness between 40 and 120 mm. If an AC installation needs extra copper piping or work at height, it is charged separately at the official rates, and the installer will tell you before starting.',
+  },
+  {
+    id: 'privacy',
+    title: 'Privacy and data security',
+    text: "Usage data from Nova devices is encrypted and stored in data centers in China. A lock's unlock history is stored only under the user's account, and Nova employees cannot see it. Video from camera devices is stored locally by default and is uploaded only if you subscribe to cloud storage. You can export your personal data from the app, or request deletion of all your data. Nova never sells user data to third parties.",
+  },
+]
+
+export const NOVA_DOCS: Doc[] = L(NOVA_DOCS_ZH, NOVA_DOCS_EN)

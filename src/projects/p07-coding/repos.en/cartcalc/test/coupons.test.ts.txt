@@ -1,0 +1,26 @@
+import { expect, test } from 'testkit'
+import { applyCoupons } from '../src/coupons'
+
+const P10 = { code: 'P10', kind: 'percent' as const, value: 10 }
+const F20 = { code: 'F20', kind: 'fixed' as const, value: 2000, minSpend: 10000 }
+
+test('percent coupon', () => {
+  expect(applyCoupons(10000, [P10])).toEqual({ total: 9000, applied: ['P10'] })
+})
+
+test('fixed coupon', () => {
+  expect(applyCoupons(15000, [F20])).toEqual({ total: 13000, applied: ['F20'] })
+})
+
+test('fixed coupon needs the minimum spend', () => {
+  expect(applyCoupons(9999, [F20])).toEqual({ total: 9999, applied: [] })
+})
+
+test('percent first, then fixed', () => {
+  expect(applyCoupons(20000, [P10, F20]).total).toBe(16000)
+})
+
+test('minimum spend uses the original subtotal', () => {
+  // 10500 at 10% off is 9450, below the minimum, but the minimum is checked against the original subtotal, so F20 still applies
+  expect(applyCoupons(10500, [P10, F20]).total).toBe(7450)
+})

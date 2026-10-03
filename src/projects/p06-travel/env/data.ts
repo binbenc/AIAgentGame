@@ -2,8 +2,9 @@
  * 远方旅行社的产品库：8 个城市的交通、酒店、餐厅、景点。仿照 TravelPlanner 的沙盒数据库，规模缩小、改成中文场景。
  * 时刻表每天相同，有效期 2026-11-01 ~ 2026-12-15；交通 id = 车次/航班号-月日，例如 G1974-1106。
  */
+import { L } from '../../../engine/locale'
 
-export type Mode = '高铁' | '飞机'
+export type Mode = '高铁' | '飞机' | 'train' | 'flight'
 
 export interface Transport {
   id: string
@@ -25,7 +26,7 @@ export interface Hotel {
   /** 每间每晚（元）；青旅床位是每床每晚 */
   price: number
   rating: number
-  roomType: '大床房' | '双床房' | '家庭房' | '青旅床位'
+  roomType: '大床房' | '双床房' | '家庭房' | '青旅床位' | 'king room' | 'twin room' | 'family room' | 'dorm bed'
   /** 每间最多住几人 */
   maxOccupancy: number
   /** 最少连续入住晚数 */
@@ -62,16 +63,233 @@ export interface Attraction {
   rating: number
 }
 
-export const CITIES = ['北京', '上海', '杭州', '成都', '西安', '厦门', '广州', '重庆'] as const
-const CODE: Record<string, string> = { 北京: 'BJ', 上海: 'SH', 杭州: 'HZ', 成都: 'CD', 西安: 'XA', 厦门: 'XM', 广州: 'GZ', 重庆: 'CQ' }
+/** English names for everything in the tables below (cities, modes, room types, cuisines, weekdays, hotels, restaurants, attractions) */
+const EN: Record<string, string> = {
+  北京: 'Beijing',
+  上海: 'Shanghai',
+  杭州: 'Hangzhou',
+  成都: 'Chengdu',
+  西安: "Xi'an",
+  厦门: 'Xiamen',
+  广州: 'Guangzhou',
+  重庆: 'Chongqing',
+  高铁: 'train',
+  飞机: 'flight',
+  大床房: 'king room',
+  双床房: 'twin room',
+  家庭房: 'family room',
+  青旅床位: 'dorm bed',
+  京菜: 'Beijing cuisine',
+  火锅: 'hotpot',
+  小吃: 'snacks',
+  川菜: 'Sichuan',
+  素食: 'vegetarian',
+  本帮菜: 'Shanghainese',
+  浙菜: 'Zhejiang cuisine',
+  海鲜: 'seafood',
+  杭帮菜: 'Hangzhou cuisine',
+  烧烤: 'barbecue',
+  串串: 'skewers',
+  陕菜: 'Shaanxi cuisine',
+  闽菜: 'Fujian cuisine',
+  粤菜: 'Cantonese',
+  周日: 'Sunday',
+  周一: 'Monday',
+  周二: 'Tuesday',
+  周三: 'Wednesday',
+  周四: 'Thursday',
+  周五: 'Friday',
+  周六: 'Saturday',
+  王府井文华东方酒店: 'Mandarin Oriental Wangfujing',
+  北京饭店诺金: 'NUO Hotel Beijing',
+  南锣鼓巷四合院客栈: 'Nanluoguxiang Courtyard Inn',
+  前门亚朵酒店: 'Atour Hotel Qianmen',
+  国贸如家精选: 'Home Inn Selected Guomao',
+  胡同青年旅舍: 'Hutong Youth Hostel',
+  外滩华尔道夫酒店: 'Waldorf Astoria on the Bund',
+  和平饭店: 'Fairmont Peace Hotel',
+  新天地朗廷酒店: 'Langham Xintiandi',
+  静安亚朵酒店: "Atour Hotel Jing'an",
+  人民广场全季酒店: "JI Hotel People's Square",
+  城市青年旅舍: 'City Youth Hostel',
+  西湖国宾馆: 'West Lake State Guesthouse',
+  灵隐宠物友好民宿: 'Lingyin Pet-Friendly B&B',
+  湖滨亚朵酒店: 'Atour Hotel Hubin',
+  西湖边汉庭酒店: 'Hanting Hotel West Lake',
+  武林全季酒店: 'JI Hotel Wulin',
+  西湖青年旅舍: 'West Lake Youth Hostel',
+  太古里博舍: 'The Temple House',
+  锦江宾馆: 'Jinjiang Hotel',
+  宽窄巷子院落民宿: 'Kuanzhai Alley Courtyard B&B',
+  春熙路全季酒店: 'JI Hotel Chunxi Road',
+  天府家庭公寓: 'Tianfu Family Apartments',
+  熊猫青年旅舍: 'Panda Youth Hostel',
+  索菲特人民大厦: 'Sofitel Renmin Square',
+  钟楼威斯汀酒店: 'Westin Bell Tower',
+  回民街精品民宿: 'Muslim Quarter Boutique B&B',
+  大雁塔亚朵酒店: 'Atour Hotel Big Wild Goose Pagoda',
+  钟楼全季酒店: 'JI Hotel Bell Tower',
+  书院青年旅舍: 'Shuyuan Youth Hostel',
+  鼓浪屿海景别墅: 'Gulangyu Sea View Villa',
+  厦门康莱德酒店: 'Conrad Xiamen',
+  曾厝垵海边民宿: "Zengcuo'an Seaside B&B",
+  中山路亚朵酒店: 'Atour Hotel Zhongshan Road',
+  环岛路全季酒店: 'JI Hotel Huandao Road',
+  鹭岛青年旅舍: 'Egret Island Youth Hostel',
+  广州四季酒店: 'Four Seasons Guangzhou',
+  白天鹅宾馆: 'White Swan Hotel',
+  东山口洋房民宿: 'Dongshankou Villa B&B',
+  北京路亚朵酒店: 'Atour Hotel Beijing Road',
+  天河全季酒店: 'JI Hotel Tianhe',
+  珠江青年旅舍: 'Pearl River Youth Hostel',
+  来福士洲际酒店: 'InterContinental Raffles City',
+  洪崖洞江景酒店: 'Hongyadong Riverview Hotel',
+  观音桥亚朵酒店: 'Atour Hotel Guanyinqiao',
+  南山宠物友好民宿: 'Nanshan Pet-Friendly B&B',
+  解放碑汉庭酒店: 'Hanting Hotel Jiefangbei',
+  山城青年旅舍: 'Mountain City Youth Hostel',
+  四季民福烤鸭店: 'Siji Minfu Roast Duck',
+  东来顺涮肉: 'Donglaishun Mutton Hotpot',
+  护国寺小吃: 'Huguosi Snacks',
+  簋街胡大饭馆: 'Hu Da (Gui Street)',
+  方砖厂炸酱面: 'Fangzhuanchang Zhajiang Noodles',
+  京兆尹素食: "King's Joy Vegetarian",
+  庆丰包子铺: 'Qingfeng Steamed Buns',
+  便宜坊烤鸭店: 'Bianyifang Roast Duck',
+  老吉士酒家: 'Old Jesse',
+  南翔馒头店: 'Nanxiang Bun Shop',
+  新荣记: 'Xin Rong Ji',
+  鹿园: 'Lu Yuan',
+  小杨生煎: "Yang's Fried Dumplings",
+  蜀地源冒菜: 'Shudiyuan Maocai',
+  功德林素食: 'Gongdelin Vegetarian',
+  外滩海鲜夜宵: 'Bund Late-Night Seafood',
+  楼外楼: 'Louwailou',
+  知味观: 'Zhiweiguan',
+  外婆家: "Grandma's Kitchen",
+  新白鹿餐厅: 'Xin Bai Lu',
+  绿茶餐厅: 'Green Tea Restaurant',
+  胜利河烧烤夜市: 'Shengli River BBQ Night Market',
+  灵隐素斋: 'Lingyin Vegetarian',
+  川味观: 'Chuanweiguan',
+  玉芝兰: 'Yu Zhi Lan',
+  小龙坎火锅: 'Xiaolongkan Hotpot',
+  陈麻婆豆腐: 'Chen Mapo Tofu',
+  钟水饺: 'Zhong Dumplings',
+  夜猫子串串香: 'Night Owl Skewers',
+  龙抄手: 'Long Wontons',
+  文殊院素斋: 'Wenshu Monastery Vegetarian',
+  蜀九香火锅: 'Shu Jiu Xiang Hotpot',
+  长安大牌档: "Chang'an Dapaidang",
+  老孙家泡馍: 'Lao Sun Jia Paomo',
+  德发长饺子宴: 'De Fa Chang Dumpling Banquet',
+  回民街烤肉夜市: 'Muslim Quarter BBQ Night Market',
+  魏家凉皮: 'Wei Jia Liangpi',
+  西安饭庄: "Xi'an Restaurant",
+  蜀香川菜馆: 'Shu Xiang Sichuan Kitchen',
+  大慈恩素斋: "Da Ci'en Vegetarian",
+  临家闽南菜: 'Linjia Minnan Kitchen',
+  八市海鲜大排档: 'Bashi Seafood Dapaidang',
+  黄则和花生汤: 'Huang Zehe Peanut Soup',
+  宴遇: 'Yan Yu',
+  沙茶面老店: 'Old Satay Noodle Shop',
+  南普陀素菜馆: 'Nanputuo Vegetarian',
+  潮汕牛肉火锅: 'Chaoshan Beef Hotpot',
+  曾厝垵小吃街: "Zengcuo'an Snack Street",
+  点都德: 'Dian Dou De',
+  炳胜品味: 'Bingsheng Pinwei',
+  宵夜大排档: 'Late-Night Dapaidang',
+  陶陶居: 'Tao Tao Ju',
+  广州酒家: 'Guangzhou Restaurant',
+  银记肠粉: 'Yin Ji Rice Rolls',
+  太二酸菜鱼: 'Tai Er Pickled Fish',
+  素社素食: 'Sushe Vegetarian',
+  珮姐老火锅: 'Pei Jie Hotpot',
+  陶然居: 'Taoranju',
+  好又来酸辣粉: 'Haoyoulai Hot & Sour Noodles',
+  洞子老火锅: 'Dongzi Hotpot',
+  九园包子: 'Jiuyuan Buns',
+  磁器口毛血旺: 'Ciqikou Maoxuewang',
+  江湖菜烧烤夜市: 'Jianghu BBQ Night Market',
+  慈云寺素斋: 'Ciyun Temple Vegetarian',
+  故宫博物院: 'The Palace Museum',
+  八达岭长城: 'Badaling Great Wall',
+  颐和园: 'Summer Palace',
+  天坛公园: 'Temple of Heaven',
+  中国国家博物馆: 'National Museum of China',
+  南锣鼓巷: 'Nanluoguxiang',
+  '798 艺术区': '798 Art District',
+  外滩: 'The Bund',
+  上海博物馆: 'Shanghai Museum',
+  豫园: 'Yu Garden',
+  东方明珠: 'Oriental Pearl Tower',
+  上海迪士尼乐园: 'Shanghai Disneyland',
+  田子坊: 'Tianzifang',
+  朱家角古镇: 'Zhujiajiao Water Town',
+  西湖: 'West Lake',
+  灵隐寺: 'Lingyin Temple',
+  西溪湿地: 'Xixi Wetland',
+  浙江省博物馆: 'Zhejiang Provincial Museum',
+  宋城: 'Songcheng',
+  河坊街: 'Hefang Street',
+  龙井村: 'Longjing Village',
+  大熊猫繁育研究基地: 'Giant Panda Breeding Base',
+  四川博物院: 'Sichuan Museum',
+  都江堰: 'Dujiangyan',
+  宽窄巷子: 'Kuanzhai Alley',
+  武侯祠: 'Wuhou Shrine',
+  杜甫草堂: 'Du Fu Thatched Cottage',
+  青城山: 'Mount Qingcheng',
+  陕西历史博物馆: 'Shaanxi History Museum',
+  秦始皇兵马俑: 'Terracotta Warriors',
+  大雁塔: 'Big Wild Goose Pagoda',
+  西安城墙: "Xi'an City Wall",
+  大唐不夜城: 'Datang Everbright City',
+  华清宫: 'Huaqing Palace',
+  回民街: 'Muslim Quarter',
+  鼓浪屿: 'Gulangyu Island',
+  南普陀寺: 'Nanputuo Temple',
+  厦门大学: 'Xiamen University',
+  环岛路: 'Huandao Road',
+  曾厝垵: "Zengcuo'an",
+  胡里山炮台: 'Hulishan Fortress',
+  厦门科技馆: 'Xiamen Science and Technology Museum',
+  广州塔: 'Canton Tower',
+  陈家祠: 'Chen Clan Ancestral Hall',
+  沙面岛: 'Shamian Island',
+  长隆野生动物世界: 'Chimelong Safari Park',
+  越秀公园: 'Yuexiu Park',
+  广东省博物馆: 'Guangdong Museum',
+  北京路步行街: 'Beijing Road Pedestrian Street',
+  洪崖洞: 'Hongyadong',
+  武隆天生三桥: 'Wulong Three Natural Bridges',
+  长江索道: 'Yangtze River Cableway',
+  磁器口古镇: 'Ciqikou Ancient Town',
+  重庆中国三峡博物馆: 'Three Gorges Museum',
+  解放碑步行街: 'Jiefangbei Pedestrian Street',
+  李子坝轻轨穿楼: 'Liziba Monorail Station',
+}
+/** 把表里的中文名换成当前语言的名字 */
+const tr = <T extends string>(s: T): T => L(s, (EN[s] ?? s) as T)
 
-export const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const CITIES_ZH = ['北京', '上海', '杭州', '成都', '西安', '厦门', '广州', '重庆']
+export const CITIES: string[] = CITIES_ZH.map(tr)
+const CODE_ZH: Record<string, string> = { 北京: 'BJ', 上海: 'SH', 杭州: 'HZ', 成都: 'CD', 西安: 'XA', 厦门: 'XM', 广州: 'GZ', 重庆: 'CQ' }
+/** 城市（当前语言的名字）→ id 里用的两字母代码 */
+export const CITY_CODE: Record<string, string> = Object.fromEntries(CITIES_ZH.map((c) => [tr(c), CODE_ZH[c]]))
+
+export const FLIGHT: Mode = tr('飞机')
+
+/** 英文城市名的比较键：忽略大小写、空格、撇号和结尾的 "city"（Xi'an / Xian / xi an city 都算同一个） */
+export const cityKey = (s: string) => s.toLowerCase().replace(/\s*city$/, '').replace(/[^a-z]/g, '')
+
+export const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map(tr)
 
 // —————————————— 交通时刻表 ——————————————
 // [车次/航班, 方式, 出发城市, 到达城市, 出发, 到达, 票价]
 type Line = [string, Mode, string, string, string, string, number]
 
-const LINES: Line[] = [
+const LINES_ZH: Line[] = [
   // 上海 ⇄ 成都
   ['G1974', '高铁', '上海', '成都', '06:52', '18:40', 960],
   ['MU5401', '飞机', '上海', '成都', '07:30', '10:45', 1180],
@@ -222,6 +440,8 @@ const LINES: Line[] = [
   ['D3126', '高铁', '厦门', '杭州', '14:30', '19:40', 380],
   ['MF8517', '飞机', '厦门', '杭州', '17:40', '19:20', 620],
 ]
+
+const LINES: Line[] = LINES_ZH.map(([code, mode, from, to, depart, arrive, price]) => [code, tr(mode), tr(from), tr(to), depart, arrive, price])
 
 const FIRST_DAY = Date.UTC(2026, 10, 1)
 const LAST_DAY = Date.UTC(2026, 11, 15)
@@ -514,26 +734,35 @@ const ATTRACTIONS_BY_CITY: Record<string, A[]> = {
 const pad = (n: number) => String(n).padStart(2, '0')
 
 function hotelRules(h: Omit<Hotel, 'rules'>): string[] {
-  const rules = [h.petsAllowed ? '可携带宠物' : '禁止携带宠物']
-  if (h.minNights > 1) rules.push(`最少连住 ${h.minNights} 晚`)
-  rules.push(`每间最多入住 ${h.maxOccupancy} 人`)
-  if (h.barrierFree) rules.push('有无障碍客房')
+  const rules = [h.petsAllowed ? L('可携带宠物', 'pets allowed') : L('禁止携带宠物', 'no pets')]
+  if (h.minNights > 1) rules.push(L(`最少连住 ${h.minNights} 晚`, `minimum stay ${h.minNights} nights`))
+  rules.push(L(`每间最多入住 ${h.maxOccupancy} 人`, `max ${h.maxOccupancy} guests per room`))
+  if (h.barrierFree) rules.push(L('有无障碍客房', 'accessible rooms'))
   return rules
 }
 
 export const HOTELS: Hotel[] = Object.entries(HOTELS_BY_CITY).flatMap(([city, rows]) =>
   rows.map(([name, price, rating, roomType, maxOccupancy, minNights, petsAllowed, barrierFree], i) => {
-    const h = { id: `H-${CODE[city]}-${pad(i + 1)}`, city, name, price, rating, roomType, maxOccupancy, minNights, petsAllowed, barrierFree }
+    const h = { id: `H-${CODE_ZH[city]}-${pad(i + 1)}`, city: tr(city), name: tr(name), price, rating, roomType: tr(roomType), maxOccupancy, minNights, petsAllowed, barrierFree }
     return { ...h, rules: hotelRules(h) }
   }),
 )
 
 export const RESTAURANTS: Restaurant[] = Object.entries(RESTAURANTS_BY_CITY).flatMap(([city, rows]) =>
-  rows.map(([name, cuisine, avgCost, hours, rating], i) => ({ id: `R-${CODE[city]}-${pad(i + 1)}`, city, name, cuisine, avgCost, hours, rating })),
+  rows.map(([name, cuisine, avgCost, hours, rating], i) => ({ id: `R-${CODE_ZH[city]}-${pad(i + 1)}`, city: tr(city), name: tr(name), cuisine: tr(cuisine), avgCost, hours, rating })),
 )
 
 export const ATTRACTIONS: Attraction[] = Object.entries(ATTRACTIONS_BY_CITY).flatMap(([city, rows]) =>
-  rows.map(([name, ticket, duration, closedOn, barrierFree, rating], i) => ({ id: `A-${CODE[city]}-${pad(i + 1)}`, city, name, ticket, duration, closedOn, barrierFree, rating })),
+  rows.map(([name, ticket, duration, closedOn, barrierFree, rating], i) => ({
+    id: `A-${CODE_ZH[city]}-${pad(i + 1)}`,
+    city: tr(city),
+    name: tr(name),
+    ticket,
+    duration,
+    closedOn: closedOn && tr(closedOn),
+    barrierFree,
+    rating,
+  })),
 )
 
 export const HOTEL_BY_ID = new Map(HOTELS.map((h) => [h.id, h]))

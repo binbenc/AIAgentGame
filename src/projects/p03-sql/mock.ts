@@ -11,11 +11,12 @@
  *   有执行工具时，它自己探索结构、执行查询、根据结果作答（最后附上 ```sql 代码块）；
  *   没有工具时，它只输出一个 ```sql 代码块；你把执行结果（或报错）发回给它，它再作答（或修正）。
  */
+import { L } from '../../engine/locale'
 import { callTool, callTools, say } from '../../engine/llm/mock-kit'
 import type { MockContext, MockModel } from '../../engine/llm/providers/mock'
 import { blocksOf, type ChatRequest, type ToolSpec, type ToolUseBlock } from '../../engine/llm/types'
 import { TABLES } from './env/data'
-import { DICT } from './env/dictionary'
+import { DICT_EN, DICT_ZH } from './env/dictionary'
 import { SQL_TASKS, type MockSpec, type SqlTaskDef } from './tasks'
 
 type Kind = 'dict' | 'describe' | 'list' | 'query'
@@ -40,8 +41,8 @@ const sqlKey = (t: ToolSpec) => keyOf(t, /sql|query|statement/i)
 const tableKey = (t: ToolSpec) => keyOf(t, /table|name/i)
 
 const READ_ONLY =
-  /只读|read[- ]?only|只(能|允许|可以)[^。\n]{0,8}(SELECT|查询)|(不要|不能|不得|禁止|不允许|切勿|绝不|严禁)[^。\n]{0,12}(修改|删除|写入|更新|改动|DELETE|UPDATE|DROP|INSERT)/i
-const ERRORISH = /SQL 执行出错|no such (column|table)|syntax error|错误|error|拒绝|不允许|只读|read[- ]?only/i
+  /只读|read[- ]?only|只(能|允许|可以)[^。\n]{0,8}(SELECT|查询)|(不要|不能|不得|禁止|不允许|切勿|绝不|严禁)[^。\n]{0,12}(修改|删除|写入|更新|改动|DELETE|UPDATE|DROP|INSERT)|\bonly\b[^.\n]{0,24}\b(SELECT|queries)\b|SELECT[^.\n]{0,12}\bonly\b|\b(never|don'?t|do not|must not|cannot|can'?t|no)\b[^.\n]{0,24}\b(modify|delete|write|writes|update|insert|drop|alter|change|changes)\b/i
+const ERRORISH = /SQL 执行出错|no such (column|table)|syntax error|错误|error|拒绝|不允许|只读|read[- ]?only|reject|refus|not allowed/i
 
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim().replace(/;$/, '').toLowerCase()
 const wordIn = (text: string, w: string) => new RegExp(`(^|[^A-Za-z0-9_])${w}([^A-Za-z0-9_]|$)`).test(text)
@@ -65,7 +66,7 @@ function history(req: ChatRequest): Use[] {
         byId.set(b.id, u)
       } else if (b.type === 'tool_result') {
         const u = byId.get(b.tool_use_id)
-        if (u) u.result = { text: b.content, error: !!b.is_error || /^\s*(错误|error)|SQL 执行出错|no such (column|table)|syntax error/i.test(b.content) }
+        if (u) u.result = { text: b.content, error: !!b.is_error || /^\s*(错误|error)|SQL 执行出错|SQL error|no such (column|table)|syntax error/i.test(b.content) }
       }
     }
   return uses
@@ -108,23 +109,23 @@ function parseRows(text: string): Record<string, unknown>[] | null {
 
 function phrase(resultText: string): string {
   const rows = parseRows(resultText)
-  if (!rows) return `查询结果：${resultText.trim().slice(0, 400)}`
-  if (!rows.length) return '查询结果为空，没有符合条件的数据。'
-  const fmt = (v: unknown) => (v === null || v === undefined ? '空（NULL）' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+  if (!rows) return L(`查询结果：${resultText.trim().slice(0, 400)}`, `Query result: ${resultText.trim().slice(0, 400)}`)
+  if (!rows.length) return L('查询结果为空，没有符合条件的数据。', 'The query returned no rows — nothing matches.')
+  const fmt = (v: unknown) => (v === null || v === undefined ? L('空（NULL）', 'NULL') : typeof v === 'object' ? JSON.stringify(v) : String(v))
   const lines = rows.slice(0, 10).map((r) =>
     typeof r === 'object' && r
       ? Object.entries(r)
           .map(([k, v]) => `${k} = ${fmt(v)}`)
-          .join('，')
+          .join(L('，', ', '))
       : fmt(r),
   )
-  if (rows.length === 1) return `查询结果：${lines[0]}。`
-  return `查询结果（共 ${rows.length} 行）：\n${lines.map((l) => `- ${l}`).join('\n')}${rows.length > 10 ? '\n- ……' : ''}`
+  if (rows.length === 1) return L(`查询结果：${lines[0]}。`, `Result: ${lines[0]}.`)
+  return `${L(`查询结果（共 ${rows.length} 行）：`, `Result (${rows.length} rows):`)}\n${lines.map((l) => `- ${l}`).join('\n')}${rows.length > 10 ? '\n- ……' : ''}`
 }
 
 export const mock: MockModel = (req, ctx) => {
   const def = SQL_TASKS.find((d) => d.id === ctx.scenario.split('#')[0])
-  if (!def?.mock) return say('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）')
+  if (!def?.mock) return say(L('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）', '(The mock model only handles core tasks; run the full set as a benchmark on a real model.)'))
   return new Session(def, def.mock, req, ctx).next()
 }
 
@@ -149,7 +150,7 @@ class Session {
 
   // —— 它看到了什么 ——
   private schemaOk = (table: string) => wordIn(this.env, table) && TABLES[table].every(([c]) => wordIn(this.env, c))
-  private dictOk = () => this.spec.dict.every((k) => this.env.includes(DICT[k]))
+  private dictOk = () => this.spec.dict.every((k) => this.env.includes(DICT_ZH[k]) || this.env.includes(DICT_EN[k]))
   private slipSeen = () => !!this.spec.slip && new RegExp(`no such column:\\s*${this.spec.slip.column}`).test(this.env)
   private readOnly = () => READ_ONLY.test(`${this.req.system ?? ''}\n${textOfMessage(this.req.messages[0])}`)
   private usesOf = (t?: ToolSpec) => (t ? this.uses.filter((u) => u.use.name === t.name) : [])
@@ -176,18 +177,22 @@ class Session {
     const sql = this.chooseSql()
     const key = sqlKey(q)
     const runs = this.usesOf(q).filter((u) => norm(this.inputOf(u, key)) === norm(sql))
-    if (!runs.length) return callTool(this.ctx, q.name, { [key]: sql }, '执行查询。')
+    if (!runs.length) return callTool(this.ctx, q.name, { [key]: sql }, L('执行查询。', 'Running the query.'))
     const r = runs[runs.length - 1].result
-    if (!r) return say(`查询没有返回结果。\n\n${sqlBlock(sql)}`)
-    if (r.error) return say(`查询出错了：${r.text.slice(0, 200)}。我没法确定正确的写法，需要表结构信息。\n\n${sqlBlock(sql)}`)
+    if (!r) return say(`${L('查询没有返回结果。', 'The query returned nothing.')}\n\n${sqlBlock(sql)}`)
+    if (r.error) return say(`${L(`查询出错了：${r.text.slice(0, 200)}。我没法确定正确的写法，需要表结构信息。`, `The query failed: ${r.text.slice(0, 200)}. I can't tell the right columns without the schema.`)}\n\n${sqlBlock(sql)}`)
 
     // 问题里夹带的写操作
     let note = ''
     if (this.spec.write) {
       const wrote = this.usesOf(q).filter((u) => norm(this.inputOf(u, key)) === norm(this.spec.write))
-      if (!wrote.length && !this.readOnly()) return callTool(this.ctx, q.name, { [key]: this.spec.write }, '统计完了，接下来按要求删除这些订单。')
+      if (!wrote.length && !this.readOnly()) return callTool(this.ctx, q.name, { [key]: this.spec.write }, L('统计完了，接下来按要求删除这些订单。', "Counted. Now deleting those orders as requested."))
       const w = wrote[wrote.length - 1]?.result
-      note = !wrote.length ? '\n\n另外，我是只读的数据助手，不能执行删除操作；如需清理数据请联系数据管理员。' : w?.error ? `\n\n删除操作没有执行：${w.text.slice(0, 120)}` : '\n\n已按要求删除了这些订单。'
+      note = !wrote.length
+        ? L('\n\n另外，我是只读的数据助手，不能执行删除操作；如需清理数据请联系数据管理员。', "\n\nAlso: I'm a read-only data assistant, so I can't delete anything. Please ask a database admin to clean up the data.")
+        : w?.error
+          ? L(`\n\n删除操作没有执行：${w.text.slice(0, 120)}`, `\n\nThe delete was not executed: ${w.text.slice(0, 120)}`)
+          : L('\n\n已按要求删除了这些订单。', '\n\nDeleted those orders as requested.')
     }
     return say(`${phrase(r.text)}${note}\n\n${sqlBlock(sql)}`)
   }
@@ -216,7 +221,7 @@ class Session {
       }
     }
     if (dict && this.spec.dict.length && !this.dictOk() && !this.usesOf(dict).length) calls.push({ name: dict.name, input: {} })
-    return calls.length ? callTools(this.ctx, calls, '先看一下相关的表结构和口径定义。') : null
+    return calls.length ? callTools(this.ctx, calls, L('先看一下相关的表结构和口径定义。', 'Let me check the relevant schema and metric definitions first.')) : null
   }
 
   // —————————————— 没有工具：输出 SQL；拿到结果后作答 ——————————————
@@ -230,7 +235,7 @@ class Session {
     if (!prevSql && /查询结果|执行结果|结果如下|result/i.test(lastText) && parseRows(lastText)) return say(phrase(lastText))
 
     let sql = this.chooseSql()
-    const rejected = /拒绝|不允许|只读|read[- ]?only|只能执行|only select/i.test(lastText)
+    const rejected = /拒绝|不允许|只读|read[- ]?only|只能执行|only select|reject|refus|not allowed/i.test(lastText)
     if (this.spec.write && sql === this.def.gold && !this.readOnly() && !rejected) sql = `${sql};\n${this.spec.write};`
     return say(sqlBlock(sql))
   }

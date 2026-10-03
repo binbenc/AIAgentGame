@@ -1,0 +1,9 @@
+## Production notes
+
+- Anthropic's "Building effective agents" splits systems into two kinds: **workflows** (the flow is predefined in code) and **agents** (the model decides the flow dynamically). The advice: start with the simplest solution and only move up to an agent when you really need the flexibility.
+- **Routing**: send requests through a fast model (Haiku, GPT-4o-mini and the like) or a classic classifier first, then hand them to specialized handlers. High-volume, deterministic paths (order tracking, policy lookups) go straight to code, cutting cost and latency by an order of magnitude. Always validate the category against an enum and have a fallback branch.
+- **Prompt chaining**: split a big task into a few small prompts in sequence; each link is simpler and easier to test. **Programmatic gates** between links (format, required fields, banned words, length) are the core advantage of workflows: stop as soon as something is wrong instead of burning money on bad input.
+- **Parallelization** comes in two flavors: *sectioning* (split the task into independent subtasks and run them at once, like the three moderation checks) and *voting* (ask the same question several times and take the majority, for more reliable high-stakes judgments). Total latency is the slowest call, not the sum.
+- Two more common patterns: **orchestrator-workers** (one model splits the task dynamically, see Levels 10 and 14) and **evaluator-optimizer** (one model generates, another scores, and they loop to improve).
+- Workflows and agents compose: a deterministic router on the outside, an agent inside one of the branches. Most "production agents" are hybrids like this.
+- Watch provider concurrency and rate limits when calling in parallel (Level 6): cap the concurrency, for example with a simple semaphore, rather than firing off hundreds of requests at once.

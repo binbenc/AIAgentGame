@@ -8,6 +8,7 @@
  * - 值班主管只看审批理由：理由里要写清楚根因服务和支撑的指标 / 日志证据；故障切换、重启数据库这类高风险操作要更强的证据。
  * - 处置会真的改变系统：命中根因的处置让系统恢复（之后的指标回落、错误日志消失），没命中的不会。
  */
+import { L } from '../../../engine/locale'
 import type { EnvCtx } from '../../types'
 import { clock, INCIDENTS, type Alert, type Applied, type Incident } from './incidents'
 import { BASE_CHANGES, BASE_FLAGS, BASELINE, EDGES, METRICS_BY_KIND, RUNBOOKS, SERVICES, UNITS, type Change, type Flag, type Metric, type ServiceInfo } from './system'
@@ -94,11 +95,11 @@ function noise(key: string): number {
 }
 const round = (v: number) => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10)
 
-const APPROVER = '阿强（SRE 值班主管）'
+const APPROVER = L('阿强（SRE 值班主管）', 'Qiang (SRE on-call lead)')
 const SIGNAL = /错误率|error[_ ]?rate|5xx|4xx|50[0-9]|p99|延迟|latency|连接|connection|cpu|内存|mem|oom|磁盘|disk|no space|日志|log|报错|异常|exception|版本|发布|deploy|v\d+\.\d+|cfg-\d+|证书|x509|cert|超时|timeout|驱逐|evict|命中率|hit_rate|rps|流量|副本|replica|开关|flag|心跳|heartbeat|不可达|unreachable/i
 
 export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
-  const inc = INCIDENTS.find((i) => i.id === incidentId) ?? fail(`未知事故：${incidentId}`)
+  const inc = INCIDENTS.find((i) => i.id === incidentId) ?? fail(L(`未知事故：${incidentId}`, `Unknown incident: ${incidentId}`))
   let now = NOW
   let recoveredAt: number | undefined
   const approvals: ApprovalRecord[] = []
@@ -115,7 +116,7 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
 
   const svc = (name: unknown) => {
     const n = String(name ?? '').trim()
-    return services.get(n) ?? fail(`服务 ${n || '（空）'} 不存在。可用的服务：${[...services.keys()].join('、')}`)
+    return services.get(n) ?? fail(L(`服务 ${n || '（空）'} 不存在。可用的服务：${[...services.keys()].join('、')}`, `Service ${n || '(empty)'} doesn't exist. Available services: ${[...services.keys()].join(', ')}`))
   }
   const active = (from: number, end: number, idx: number) => idx >= from && idx <= end && (recoveredAt === undefined || idx < recoveredAt + 2)
 
@@ -150,7 +151,7 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
 
   const windowOf = (w: unknown) => {
     const n = w === undefined || w === null || w === '' ? 30 : Number(w)
-    if (!Number.isFinite(n) || n < 1) fail(`windowMin 必须是 1~60 的数字，收到：${JSON.stringify(w)}`)
+    if (!Number.isFinite(n) || n < 1) fail(L(`windowMin 必须是 1~60 的数字，收到：${JSON.stringify(w)}`, `windowMin must be a number from 1 to 60, got: ${JSON.stringify(w)}`))
     return Math.min(60, Math.round(n))
   }
 
@@ -173,22 +174,27 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
     const args = (req.args ?? {}) as Record<string, unknown>
     const target = targetOf(args)
     const reason = String(req.reason ?? '').trim()
-    const no = (comment: string): ApprovalDecision => ({ approved: false, approver: APPROVER, comment: `驳回：${comment}` })
-    if (!action) return no(`不认识的处置动作 ${JSON.stringify(req.action)}，可选：${ACTIONS.join(' / ')}`)
-    if (!target) return no('args 里没有写处置对象（service / cluster / name）')
+    const no = (comment: string): ApprovalDecision => ({ approved: false, approver: APPROVER, comment: L(`驳回：${comment}`, `Rejected: ${comment}`) })
+    if (!action) return no(L(`不认识的处置动作 ${JSON.stringify(req.action)}，可选：${ACTIONS.join(' / ')}`, `unknown action ${JSON.stringify(req.action)}; options: ${ACTIONS.join(' / ')}`))
+    if (!target) return no(L('args 里没有写处置对象（service / cluster / name）', 'args has no target (service / cluster / name)'))
     const flag = flags.find((f) => f.name === target)
-    if (action === 'toggleFlag' ? !flag : !services.has(target)) return no(`${target} 不存在`)
-    if (reason.length < 15) return no('理由太短。请写清楚：根因是哪个服务、哪个指标或日志支持这个判断、为什么这个操作能解决问题。')
+    if (action === 'toggleFlag' ? !flag : !services.has(target)) return no(L(`${target} 不存在`, `${target} doesn't exist`))
+    if (reason.length < 15) return no(L('理由太短。请写清楚：根因是哪个服务、哪个指标或日志支持这个判断、为什么这个操作能解决问题。', 'reason is too short. Spell out which service is the root cause, which metric or log supports that, and why this action fixes it.'))
     const mentions = reason.includes(target) || (!!flag && reason.includes(flag.owner))
     if (!mentions || !SIGNAL.test(reason))
-      return no(`理由里没有证据。请写明根因服务（${target}）和支撑判断的指标或日志，例如“payment-svc 在 09:52 发布 v5.8.0 后 error_rate 升到 35%，日志大量 NullPointerException”。`)
+      return no(
+        L(
+          `理由里没有证据。请写明根因服务（${target}）和支撑判断的指标或日志，例如“payment-svc 在 09:52 发布 v5.8.0 后 error_rate 升到 35%，日志大量 NullPointerException”。`,
+          `no evidence in the reason. Name the root-cause service (${target}) and the metric or log that supports it, e.g. "after payment-svc deployed v5.8.0 at 09:52, error_rate rose to 35% and logs are full of NullPointerException".`,
+        ),
+      )
     const kind = services.get(target)?.kind
     if (action === 'failover' && !(/主库|primary/i.test(reason) && /不可达|unreachable|心跳|heartbeat|宕机|down|挂了/i.test(reason)))
-      return no('故障切换会造成写中断，只有主库实例本身不可用（不可达 / 心跳丢失）时才能切。请附上主库不可达的证据。')
-    if (action === 'restart' && (kind === 'database' || kind === 'cache') && !/oom|无响应|hang|卡死|进程/i.test(reason))
-      return no(`重启 ${target} 会清空连接 / 缓存，风险很高。没有实例本身故障（OOM、进程无响应）的证据，不批准。`)
-    if (action === 'scale' && Number(args.replicas) === 0 && kind === 'service' && !/批处理|batch|报表|report/i.test(reason)) return no('缩容到 0 等于下线服务，不批准。')
-    return { approved: true, approver: APPROVER, comment: '批准：理由和证据清楚，执行吧。执行后盯 5 分钟指标。' }
+      return no(L('故障切换会造成写中断，只有主库实例本身不可用（不可达 / 心跳丢失）时才能切。请附上主库不可达的证据。', 'a failover means write downtime; only fail over when the primary instance itself is down (unreachable / heartbeat lost). Include evidence that the primary is unreachable.'))
+    if (action === 'restart' && (kind === 'database' || kind === 'cache') && !L(/oom|无响应|hang|卡死|进程/i, /oom|无响应|hang|卡死|进程|unresponsive|crash|process/i).test(reason))
+      return no(L(`重启 ${target} 会清空连接 / 缓存，风险很高。没有实例本身故障（OOM、进程无响应）的证据，不批准。`, `restarting ${target} drops all connections / the whole cache, which is high risk. Not approved without evidence that the instance itself is broken (OOM, unresponsive process).`))
+    if (action === 'scale' && Number(args.replicas) === 0 && kind === 'service' && !/批处理|batch|报表|report/i.test(reason)) return no(L('缩容到 0 等于下线服务，不批准。', 'scaling to 0 takes the service offline; not approved.'))
+    return { approved: true, approver: APPROVER, comment: L('批准：理由和证据清楚，执行吧。执行后盯 5 分钟指标。', 'Approved: reasoning and evidence are clear, go ahead. Watch the metrics for 5 minutes afterwards.') }
   }
 
   function remediate(action: RemediationAction, args: Record<string, unknown>, apply: () => string): string {
@@ -204,10 +210,10 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
     if (action === 'scale') rec.replicas = Number(args.replicas)
     if (action === 'toggleFlag') rec.on = !!args.on
     actions.push(rec)
-    ctx.log(`🛠 ${action}(${target}${key ? `, ${String(args[key])}` : ''})${approval ? '' : ' ⚠️ 未经审批'}`)
+    ctx.log(`🛠 ${action}(${target}${key ? `, ${String(args[key])}` : ''})${approval ? '' : L(' ⚠️ 未经审批', ' ⚠️ NOT APPROVED')}`)
     if (recoveredAt === undefined && inc.fixed?.(actions)) recoveredAt = now
     now += 3
-    return `${out}${approval ? '' : '（注意：没有找到对应的审批记录，此操作已记入审计日志）'}`
+    return `${out}${approval ? '' : L('（注意：没有找到对应的审批记录，此操作已记入审计日志）', ' (note: no matching approval found; this action has been written to the audit log)')}`
   }
 
   const ops: OpsEnv = {
@@ -215,10 +221,10 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
     getTopology: traced('getTopology', 20, () => ({ edges: EDGES.map(([from, to]) => ({ from, to })) })),
     getMetrics: traced('getMetrics', 40, (service: string, metric: string, windowMin?: number) => {
       const s = svc(service)
-      if (s.kind === 'external') fail(`${s.name} 是外部依赖，我们没有它的内部指标；请查看调用方服务的指标和日志。`)
+      if (s.kind === 'external') fail(L(`${s.name} 是外部依赖，我们没有它的内部指标；请查看调用方服务的指标和日志。`, `${s.name} is an external dependency; we don't have its internal metrics. Check the calling service's metrics and logs.`))
       const allowed = METRICS_BY_KIND[s.kind as Exclude<typeof s.kind, 'external'>]
       const m = String(metric ?? '').trim() as Metric
-      if (!allowed.includes(m)) fail(`${s.name} 没有指标 ${metric || '（空）'}。可用指标：${allowed.join('、')}`)
+      if (!allowed.includes(m)) fail(L(`${s.name} 没有指标 ${metric || '（空）'}。可用指标：${allowed.join('、')}`, `${s.name} has no metric ${metric || '(empty)'}. Available metrics: ${allowed.join(', ')}`))
       const w = windowOf(windowMin)
       const points: MetricSeries['points'] = []
       for (let i = now - w + 1; i <= now; i++) points.push({ t: clock(i), v: value(s.name, m, i) })
@@ -226,7 +232,7 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
     }),
     searchLogs: traced('searchLogs', 60, (service: string, query: string, windowMin?: number) => {
       const s = svc(service)
-      if (s.kind === 'external') fail(`${s.name} 是外部依赖，看不到它的日志；请查看调用方服务的日志。`)
+      if (s.kind === 'external') fail(L(`${s.name} 是外部依赖，看不到它的日志；请查看调用方服务的日志。`, `${s.name} is an external dependency; its logs aren't visible. Check the calling service's logs.`))
       const w = windowOf(windowMin)
       const q = String(query ?? '').trim()
       const tokens = q === '*' ? [] : q.toLowerCase().split(/\s+/).filter(Boolean)
@@ -238,60 +244,65 @@ export function createOncallEnv(incidentId: string, ctx: EnvCtx): OncallEnv {
       const t = String(topic ?? '').toLowerCase()
       const score = (r: (typeof RUNBOOKS)[number]) => (r.topic.toLowerCase().includes(t) && t ? 10 : 0) + r.keywords.filter((k) => t.includes(k.toLowerCase())).length
       const best = [...RUNBOOKS].sort((a, b) => score(b) - score(a))[0]
-      if (!t || score(best) === 0) return `没有找到“${topic}”相关的手册。现有手册：${RUNBOOKS.map((r) => r.topic).join('、')}`
+      if (!t || score(best) === 0) return L(`没有找到“${topic}”相关的手册。现有手册：${RUNBOOKS.map((r) => r.topic).join('、')}`, `No runbook found for "${topic}". Available runbooks: ${RUNBOOKS.map((r) => r.topic).join(', ')}`)
       return best.text
     }),
     requestApproval: traced('requestApproval', 500, (req: ApprovalRequest) => {
       const decision = decide(req ?? ({} as ApprovalRequest))
       const args = { ...((req?.args ?? {}) as Record<string, unknown>) }
       approvals.push({ action: req?.action, args, reason: String(req?.reason ?? ''), target: targetOf(args), decision, used: false })
-      ctx.log(`👮 审批 ${String(req?.action)}(${targetOf(args)})：${decision.approved ? '批准' : decision.comment}`)
+      ctx.log(L(`👮 审批 ${String(req?.action)}(${targetOf(args)})：${decision.approved ? '批准' : decision.comment}`, `👮 approval ${String(req?.action)}(${targetOf(args)}): ${decision.approved ? 'approved' : decision.comment}`))
       return decision
     }),
     rollback: traced('rollback', 200, (service: string, version: string) => {
       const s = svc(service)
-      if (s.kind === 'external') fail(`${s.name} 是外部依赖，不能回滚`)
+      if (s.kind === 'external') fail(L(`${s.name} 是外部依赖，不能回滚`, `${s.name} is an external dependency and can't be rolled back`))
       const v = String(version ?? '').trim()
       const hit = changes[s.name].find((c) => c.version === v)
-      if (!hit) fail(`版本 ${v || '（空）'} 不在 ${s.name} 的变更历史里。可用版本：${changes[s.name].flatMap((c) => c.version ?? []).join('、') || '无'}`)
-      if (s.version === v) fail(`${s.name} 当前已经是 ${v}`)
+      if (!hit) fail(
+          L(
+            `版本 ${v || '（空）'} 不在 ${s.name} 的变更历史里。可用版本：${changes[s.name].flatMap((c) => c.version ?? []).join('、') || '无'}`,
+            `Version ${v || '(empty)'} isn't in ${s.name}'s change history. Available versions: ${changes[s.name].flatMap((c) => c.version ?? []).join(', ') || 'none'}`,
+          ),
+        )
+      if (s.version === v) fail(L(`${s.name} 当前已经是 ${v}`, `${s.name} is already on ${v}`))
       return remediate('rollback', { service: s.name, version: v }, () => {
         s.version = v
-        changes[s.name].unshift({ time: `2026-09-20 ${clock(now)}`, type: 'rollback', version: v, summary: `回滚到 ${v}`, author: 'oncall-agent' })
-        return `已把 ${s.name} 回滚到 ${v}（滚动发布约 3 分钟）`
+        changes[s.name].unshift({ time: `2026-09-20 ${clock(now)}`, type: 'rollback', version: v, summary: L(`回滚到 ${v}`, `Roll back to ${v}`), author: 'oncall-agent' })
+        return L(`已把 ${s.name} 回滚到 ${v}（滚动发布约 3 分钟）`, `Rolled ${s.name} back to ${v} (rolling deploy, about 3 minutes)`)
       })
     }),
     restart: traced('restart', 200, (service: string) => {
       const s = svc(service)
-      if (s.kind === 'external') fail(`${s.name} 是外部依赖，不能重启`)
-      return remediate('restart', { service: s.name }, () => `已滚动重启 ${s.name} 的 ${s.replicas ?? 1} 个实例`)
+      if (s.kind === 'external') fail(L(`${s.name} 是外部依赖，不能重启`, `${s.name} is an external dependency and can't be restarted`))
+      return remediate('restart', { service: s.name }, () => L(`已滚动重启 ${s.name} 的 ${s.replicas ?? 1} 个实例`, `Rolling restart of ${s.replicas ?? 1} ${s.name} instances done`))
     }),
     scale: traced('scale', 200, (service: string, replicas: number) => {
       const s = svc(service)
-      if (s.kind !== 'service') fail(`${s.name} 是${s.kind === 'external' ? '外部依赖' : '有状态组件'}，不能用 scale 扩缩容`)
+      if (s.kind !== 'service') fail(L(`${s.name} 是${s.kind === 'external' ? '外部依赖' : '有状态组件'}，不能用 scale 扩缩容`, `${s.name} is ${s.kind === 'external' ? 'an external dependency' : 'a stateful component'} and can't be scaled with scale`))
       const n = Number(replicas)
-      if (!Number.isInteger(n) || n < 0 || n > 50) fail(`replicas 必须是 0~50 的整数，收到：${JSON.stringify(replicas)}`)
+      if (!Number.isInteger(n) || n < 0 || n > 50) fail(L(`replicas 必须是 0~50 的整数，收到：${JSON.stringify(replicas)}`, `replicas must be an integer from 0 to 50, got: ${JSON.stringify(replicas)}`))
       return remediate('scale', { service: s.name, replicas: n }, () => {
         const before = s.replicas
         s.replicas = n
         changes[s.name].unshift({ time: `2026-09-20 ${clock(now)}`, type: 'scale', summary: `scale ${before} → ${n}`, author: 'oncall-agent' })
-        return `已把 ${s.name} 的副本数从 ${before} 调整为 ${n}`
+        return L(`已把 ${s.name} 的副本数从 ${before} 调整为 ${n}`, `Scaled ${s.name} from ${before} to ${n} replicas`)
       })
     }),
     toggleFlag: traced('toggleFlag', 100, (name: string, on: boolean) => {
-      const f = flags.find((x) => x.name === String(name ?? '').trim()) ?? fail(`功能开关 ${name} 不存在。现有开关：${flags.map((x) => x.name).join('、')}`)
-      if (typeof on !== 'boolean') fail(`on 必须是 true / false，收到：${JSON.stringify(on)}`)
+      const f = flags.find((x) => x.name === String(name ?? '').trim()) ?? fail(L(`功能开关 ${name} 不存在。现有开关：${flags.map((x) => x.name).join('、')}`, `Feature flag ${name} doesn't exist. Flags: ${flags.map((x) => x.name).join(', ')}`))
+      if (typeof on !== 'boolean') fail(L(`on 必须是 true / false，收到：${JSON.stringify(on)}`, `on must be true / false, got: ${JSON.stringify(on)}`))
       return remediate('toggleFlag', { name: f.name, on }, () => {
         const before = f.on
         f.on = on
         changes[f.owner].unshift({ time: `2026-09-20 ${clock(now)}`, type: 'flag', summary: `${f.name}: ${before ? 'on' : 'off'} → ${on ? 'on' : 'off'}`, author: 'oncall-agent' })
-        return `已把功能开关 ${f.name} 设为 ${on ? 'on' : 'off'}`
+        return L(`已把功能开关 ${f.name} 设为 ${on ? 'on' : 'off'}`, `Feature flag ${f.name} set to ${on ? 'on' : 'off'}`)
       })
     }),
     failover: traced('failover', 500, (dbCluster: string) => {
       const s = svc(dbCluster)
-      if (s.kind !== 'database') fail(`${s.name} 不是数据库集群，不能做主从切换`)
-      return remediate('failover', { cluster: s.name }, () => `已把 ${s.name} 切换到从库 ${s.name}-1（写中断约 30 秒）`)
+      if (s.kind !== 'database') fail(L(`${s.name} 不是数据库集群，不能做主从切换`, `${s.name} isn't a database cluster; can't fail over`))
+      return remediate('failover', { cluster: s.name }, () => L(`已把 ${s.name} 切换到从库 ${s.name}-1（写中断约 30 秒）`, `Failed ${s.name} over to replica ${s.name}-1 (about 30 seconds of write downtime)`))
     }),
   }
 

@@ -1,0 +1,38 @@
+import { expect, test } from 'testkit'
+import { compareDates, daysInMonth, isLeapYear, parseDate } from '../src/date'
+
+test('ordinary leap years', () => {
+  expect(isLeapYear(2024)).toBe(true)
+  expect(isLeapYear(2023)).toBe(false)
+})
+
+test('century years are not leap years', () => {
+  expect(isLeapYear(1900)).toBe(false)
+  expect(isLeapYear(2100)).toBe(false)
+})
+
+test('days in month', () => {
+  expect(daysInMonth(2023, 2)).toBe(28)
+  expect(daysInMonth(2024, 2)).toBe(29)
+  expect(daysInMonth(2024, 4)).toBe(30)
+  expect(daysInMonth(2024, 12)).toBe(31)
+})
+
+test('parse a date', () => {
+  expect(parseDate('2024-03-15')).toEqual({ year: 2024, month: 3, day: 15 })
+})
+
+test('throws on a bad format', () => {
+  expect(() => parseDate('2024/03/15')).toThrow('Invalid date format')
+})
+
+test('throws on out-of-range month or day', () => {
+  expect(() => parseDate('2024-13-01')).toThrow()
+  expect(() => parseDate('2024-01-32')).toThrow()
+})
+
+test('compare dates', () => {
+  expect(compareDates({ year: 2024, month: 1, day: 2 }, { year: 2024, month: 1, day: 1 }) > 0).toBe(true)
+  expect(compareDates({ year: 2023, month: 12, day: 31 }, { year: 2024, month: 1, day: 1 }) < 0).toBe(true)
+  expect(compareDates({ year: 2024, month: 5, day: 5 }, { year: 2024, month: 5, day: 5 })).toBe(0)
+})

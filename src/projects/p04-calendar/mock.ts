@@ -13,10 +13,11 @@
  * - 规范：system 里有“确认后再执行”，它才会先列方案等确认、冲突时给选项；有“工作时间”的要求，找不到时间时才会解释而不是硬订。
  * - 改期：有修改工具才会改原会议；只有新建工具时，它会新建一个（日历上出现重复）。
  */
+import { L } from '../../engine/locale'
 import { callTool, say } from '../../engine/llm/mock-kit'
 import type { MockContext, MockModel } from '../../engine/llm/providers/mock'
 import { blocksOf, type ChatRequest, type ToolSpec } from '../../engine/llm/types'
-import { PEOPLE, REQUESTER } from './env/data'
+import { EQUIP, OFFICES, PEOPLE, REQUESTER } from './env/data'
 import { describeLocal, hhmm, isoZ, localOf, toMin } from './env/tz'
 import { isConfirmOrChoice } from './tasks'
 
@@ -42,16 +43,34 @@ interface Goal {
   message?: string
 }
 
-const GOALS: Record<string, Goal> = {
-  'three-zones': { kind: 'book', key: '海外版本', names: ['王磊', 'Oliver'], withMe: true, minutes: 30, title: '海外版本发布计划', days: [1] },
-  reschedule: { kind: 'reschedule', key: 'Emma 的 1:1', title: '1:1', event: { match: 'Emma', day: 1 }, moveTo: 2 },
-  'room-projector': { kind: 'book', key: '美术评审', names: ['刘倩', '张浩'], withMe: true, minutes: 60, title: '美术评审', days: [1], part: 'pm', room: { office: '北京', min: 8, equip: '投影仪' } },
-  'no-friday-pm': { kind: 'book', key: '同步一下进度', names: ['刘倩', '张浩'], withMe: true, minutes: 60, title: '进度同步', days: [2, 5], avoid: { phrase: '周五下午', weekday: 5, fromMin: 12 * 60 } },
-  'conflict-choose': { kind: 'book', key: '引擎升级', names: ['王磊'], withMe: true, minutes: 30, title: '引擎升级沟通', days: [1], at: '10:00' },
-  'cancel-notify': { kind: 'cancel', key: '项目周会取消', title: '项目周会', event: { match: '项目周会', day: 5 }, message: '本次项目周会取消，改期另行通知。' },
-  'dst-next-week': { kind: 'book', key: '和 Oliver 约 30 分钟', names: ['Oliver'], withMe: true, minutes: 30, title: '与 Oliver 沟通', days: [5], part: 'pm' },
-  impossible: { kind: 'book', key: 'Sarah、Oliver', names: ['Sarah', 'Oliver'], withMe: true, minutes: 60, title: '三方会议', days: [1] },
-}
+const GOALS: Record<string, Goal> = L<Record<string, Goal>>(
+  {
+    'three-zones': { kind: 'book', key: '海外版本', names: ['王磊', 'Oliver'], withMe: true, minutes: 30, title: '海外版本发布计划', days: [1] },
+    reschedule: { kind: 'reschedule', key: 'Emma 的 1:1', title: '1:1', event: { match: 'Emma', day: 1 }, moveTo: 2 },
+    'room-projector': { kind: 'book', key: '美术评审', names: ['刘倩', '张浩'], withMe: true, minutes: 60, title: '美术评审', days: [1], part: 'pm', room: { office: OFFICES.bj, min: 8, equip: EQUIP.projector } },
+    'no-friday-pm': { kind: 'book', key: '同步一下进度', names: ['刘倩', '张浩'], withMe: true, minutes: 60, title: '进度同步', days: [2, 5], avoid: { phrase: '周五下午', weekday: 5, fromMin: 12 * 60 } },
+    'conflict-choose': { kind: 'book', key: '引擎升级', names: ['王磊'], withMe: true, minutes: 30, title: '引擎升级沟通', days: [1], at: '10:00' },
+    'cancel-notify': { kind: 'cancel', key: '项目周会取消', title: '项目周会', event: { match: '项目周会', day: 5 }, message: '本次项目周会取消，改期另行通知。' },
+    'dst-next-week': { kind: 'book', key: '和 Oliver 约 30 分钟', names: ['Oliver'], withMe: true, minutes: 30, title: '与 Oliver 沟通', days: [5], part: 'pm' },
+    impossible: { kind: 'book', key: 'Sarah、Oliver', names: ['Sarah', 'Oliver'], withMe: true, minutes: 60, title: '三方会议', days: [1] },
+  },
+  {
+    'three-zones': { kind: 'book', key: 'overseas launch', names: ['Wang Lei', 'Oliver'], withMe: true, minutes: 30, title: 'Overseas launch plan', days: [1] },
+    reschedule: { kind: 'reschedule', key: '1:1 with Emma', title: '1:1', event: { match: 'Emma', day: 1 }, moveTo: 2 },
+    'room-projector': { kind: 'book', key: 'art review', names: ['Liu Qian', 'Zhang Hao'], withMe: true, minutes: 60, title: 'Art review', days: [1], part: 'pm', room: { office: OFFICES.bj, min: 8, equip: EQUIP.projector } },
+    'no-friday-pm': { kind: 'book', key: 'progress sync', names: ['Liu Qian', 'Zhang Hao'], withMe: true, minutes: 60, title: 'Progress sync', days: [2, 5], avoid: { phrase: 'Friday afternoons', weekday: 5, fromMin: 12 * 60 } },
+    'conflict-choose': { kind: 'book', key: 'engine upgrade', names: ['Wang Lei'], withMe: true, minutes: 30, title: 'Engine upgrade chat', days: [1], at: '10:00' },
+    'cancel-notify': {
+      kind: 'cancel',
+      key: "Cancel next Monday's weekly project sync",
+      title: 'Weekly project sync',
+      event: { match: 'Weekly project sync', day: 5 },
+      message: "This week's project sync is cancelled; we'll share a new time later.",
+    },
+    'dst-next-week': { kind: 'book', key: '30 minutes with Oliver', names: ['Oliver'], withMe: true, minutes: 30, title: 'Chat with Oliver', days: [5], part: 'pm' },
+    impossible: { kind: 'book', key: 'Sarah and Oliver', names: ['Sarah', 'Oliver'], withMe: true, minutes: 60, title: 'Three-way meeting', days: [1] },
+  },
+)
 
 const TODAY = '2026-10-21'
 /** 不知道今天是哪天时，模型“以为”的日期 */
@@ -80,7 +99,7 @@ function kindOf(t: ToolSpec): ToolKind | undefined {
 
 type Style = 'Z' | 'naive'
 /** 工具说明里有没有要求带时区 */
-const styleOf = (t: ToolSpec): Style => (/UTC|时区|offset|Z 结尾|以 ?Z|\+08:00|带时区/i.test(`${t.description} ${JSON.stringify(t.input_schema)}`) ? 'Z' : 'naive')
+const styleOf = (t: ToolSpec): Style => (/UTC|时区|offset|Z 结尾|以 ?Z|\+08:00|带时区|time ?zone|ending in Z/i.test(`${t.description} ${JSON.stringify(t.input_schema)}`) ? 'Z' : 'naive')
 /** 一个时间字符串的写法 */
 const styleOfString = (s: string): Style => (/(Z|[+-]\d{2}:?\d{2})$/i.test(s.trim()) ? 'Z' : 'naive')
 
@@ -145,7 +164,7 @@ function timeline(req: ChatRequest): Ev[] {
       for (const b of bl)
         if (b.type === 'tool_use') {
           const r = results.get(b.id)
-          ev.push({ kind: 'call', name: b.name, input: b.input, ok: !!r && !r.is_error && !/^\s*错误/.test(r.content), out: r?.content ?? '' })
+          ev.push({ kind: 'call', name: b.name, input: b.input, ok: !!r && !r.is_error && !/^\s*(错误|error\b)/i.test(r.content), out: r?.content ?? '' })
         }
   }
   return ev
@@ -179,7 +198,7 @@ interface Slot {
 
 export const mock: MockModel = (req, ctx) => {
   const goal = GOALS[ctx.scenario.split('#')[0]]
-  if (!goal) return say('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）')
+  if (!goal) return say(L('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）', '(The mock model only handles core tasks; run the full set as a benchmark on a real model.)'))
   return new Session(goal, req, ctx).next()
 }
 
@@ -209,10 +228,10 @@ class Session {
 
   // —— 模型知道什么 ——
   private get today() {
-    return /2026-10-21|10\s*月\s*21\s*日/.test(this.text) ? TODAY : GUESS_TODAY
+    return /2026-10-21|10\s*月\s*21\s*日|Oct(ober)?\.?\s*21\b/i.test(this.text) ? TODAY : GUESS_TODAY
   }
   private get confirmRule() {
-    return /(明确|得到|获得|等待|等).{0,8}确认|确认.{0,10}(之后|以后|后再|后才|才能|再执行)|confirm.{0,20}before/i.test(this.sys)
+    return /(明确|得到|获得|等待|等).{0,8}确认|确认.{0,10}(之后|以后|后再|后才|才能|再执行)|confirm.{0,20}before|(after|until|once|wait for|ask for|get)\b.{0,30}\b(confirm|approv)|explicit(ly)? confirm/i.test(this.sys)
   }
   private get workRule() {
     return /工作时间|working hours/i.test(this.sys)
@@ -225,12 +244,12 @@ class Session {
   private lastUser = () => this.users[this.users.length - 1] ?? ''
 
   next() {
-    if (!this.users.some((u) => u.includes(this.g.key))) return say('您好！请问需要我帮您安排什么会议？')
+    if (!this.users.some((u) => u.includes(this.g.key))) return say(L('您好！请问需要我帮您安排什么会议？', 'Hi! What meeting can I set up for you?'))
     const last = this.ev[this.ev.length - 1]
     const writes = new Set(['create', 'update', 'cancel'].map((k) => this.tools[k as ToolKind]?.name).filter(Boolean))
-    if (last?.kind === 'call' && writes.has(last.name)) return last.ok ? say(this.doneText(last)) : say(`抱歉，操作没有成功：${last.out.replace(/^错误：/, '')}`)
-    if (this.calls.some((c) => writes.has(c.name) && c.ok)) return say('还有其他需要帮忙的吗？')
-    if (last?.kind === 'call' && !last.ok) return say(`抱歉，查询时出错了：${last.out.replace(/^错误：/, '')}`)
+    if (last?.kind === 'call' && writes.has(last.name)) return last.ok ? say(this.doneText(last)) : say(L(`抱歉，操作没有成功：${last.out.replace(/^错误：/, '')}`, `Sorry, that didn't work: ${last.out.replace(/^错误：|^Error:\s*/, '')}`))
+    if (this.calls.some((c) => writes.has(c.name) && c.ok)) return say(L('还有其他需要帮忙的吗？', 'Anything else I can help with?'))
+    if (last?.kind === 'call' && !last.ok) return say(L(`抱歉，查询时出错了：${last.out.replace(/^错误：/, '')}`, `Sorry, the lookup failed: ${last.out.replace(/^错误：|^Error:\s*/, '')}`))
     if (this.g.kind === 'book') return this.book()
     return this.existing()
   }
@@ -399,14 +418,20 @@ class Session {
       const alts = slots.slice(0, 2)
       if (this.confirmRule)
         return say(
-          `北京时间 ${at} 有参会人已有安排，这个时间订不了。可选：${alts.map((x, i) => `${i + 1}）${describeLocal(x.s, BJ, x.e)}`).join('；')}。您选哪个？`,
+          L(
+            `北京时间 ${at} 有参会人已有安排，这个时间订不了。可选：${alts.map((x, i) => `${i + 1}）${describeLocal(x.s, BJ, x.e)}`).join('；')}。您选哪个？`,
+            `Someone already has a meeting at ${at} Beijing time, so I can't book that. Options: ${alts.map((x, i) => `${i + 1}) ${describeLocal(x.s, BJ, x.e)}`).join('; ')}. Which one works for you?`,
+          ),
         )
       chosen = alts[0]
     }
     if (!chosen) {
       if (this.workRule)
         return say(
-          `抱歉，在您要求的时间里找不到所有参会人都在工作时间内、又都有空的共同时段（${(this.g.names ?? []).join('、')} 和您分处不同时区，工作时间没有交集）。建议：分成两场分别和他们开，或者请其中一方提前 / 推迟上班。需要我分别帮您约吗？`,
+          L(
+            `抱歉，在您要求的时间里找不到所有参会人都在工作时间内、又都有空的共同时段（${(this.g.names ?? []).join('、')} 和您分处不同时区，工作时间没有交集）。建议：分成两场分别和他们开，或者请其中一方提前 / 推迟上班。需要我分别帮您约吗？`,
+            `Sorry, I couldn't find a slot in your window where every attendee is within working hours and free (${(this.g.names ?? []).join(', ')} and you are in different time zones and your working hours don't overlap). Suggestion: hold two separate meetings, or ask one side to start early / stay late. Want me to set them up separately?`,
+          ),
         )
       // 不知道“工作时间”这条规矩：硬订一个“最接近”的时间
       const s = bjAt(this.dates()[0], '09:00')
@@ -415,11 +440,14 @@ class Session {
 
     if (this.confirmRule && !this.confirmed())
       return say(
-        `我查了大家的日程，建议：${this.g.title}，北京时间 ${describeLocal(chosen.s, BJ, chosen.e)}，${minutes} 分钟，参会人：${attendees.join('、')}${chosen.room ? `，会议室 ${chosen.room}` : ''}。确认的话我就预订，可以吗？`,
+        L(
+          `我查了大家的日程，建议：${this.g.title}，北京时间 ${describeLocal(chosen.s, BJ, chosen.e)}，${minutes} 分钟，参会人：${attendees.join('、')}${chosen.room ? `，会议室 ${chosen.room}` : ''}。确认的话我就预订，可以吗？`,
+          `I checked everyone's calendar. Proposal: ${this.g.title}, ${describeLocal(chosen.s, BJ, chosen.e)} Beijing time, ${minutes} minutes, attendees: ${attendees.join(', ')}${chosen.room ? `, room ${chosen.room}` : ''}. Shall I book it? Please confirm.`,
+        ),
       )
 
     const t = this.tools.create
-    if (!t) return say('抱歉，我没有预订会议的权限。')
+    if (!t) return say(L('抱歉，我没有预订会议的权限。', "Sorry, I don't have permission to book meetings."))
     // 从工具结果里挑的时间：原样抄字符串；自己算的时间：按工具说明的要求写
     const dur = minutes * 60_000
     const style = chosen.raw ? styleOfString(chosen.raw.start) : styleOf(t)
@@ -431,14 +459,14 @@ class Session {
   /** 请求人刚刚确认了（或者做出了选择） */
   private confirmed(): boolean {
     const lastAgent = [...this.ev].reverse().find((e) => e.kind === 'agent')
-    return this.users.length > 1 && isConfirmOrChoice(this.lastUser()) && !!lastAgent && /确认|选/.test((lastAgent as { text: string }).text)
+    return this.users.length > 1 && isConfirmOrChoice(this.lastUser()) && !!lastAgent && /确认|选|confirm|which|choose|pick|option/i.test((lastAgent as { text: string }).text)
   }
 
   // —————————— 改期 / 取消已有会议 ——————————
 
   private existing() {
     const t = this.tools.events
-    if (!t) return say('抱歉，我查不到您的日程，没法找到这个会议。')
+    if (!t) return say(L('抱歉，我查不到您的日程，没法找到这个会议。', "Sorry, I can't see your calendar, so I can't find that meeting."))
     const day = addDays(this.today, this.g.event!.day)
     if (!this.called('events')) {
       const style = styleOf(t)
@@ -449,14 +477,15 @@ class Session {
     const ev = this.callsOf('events')
       .flatMap((c) => objects(c.out))
       .find((o) => typeof o.id === 'string' && typeof o.start === 'string' && (String(o.title).includes(m) || (emma && JSON.stringify(o.attendees ?? '').includes(emma))) && localOf(readTime(o.start), BJ).date === day)
-    if (!ev) return say(`抱歉，我在 ${day} 没有找到“${m}”相关的会议。`)
+    if (!ev) return say(L(`抱歉，我在 ${day} 没有找到“${m}”相关的会议。`, `Sorry, I couldn't find a meeting matching "${m}" on ${day}.`))
     const s = readTime(ev.start)
     const e = readTime(ev.end)
 
     if (this.g.kind === 'cancel') {
-      if (this.confirmRule && !this.confirmed()) return say(`找到了：“${ev.title}”，北京时间 ${describeLocal(s, BJ, e)}。确认取消，并通知参会人吗？`)
+      if (this.confirmRule && !this.confirmed())
+        return say(L(`找到了：“${ev.title}”，北京时间 ${describeLocal(s, BJ, e)}。确认取消，并通知参会人吗？`, `Found it: "${ev.title}", ${describeLocal(s, BJ, e)} Beijing time. Please confirm: cancel it and notify the attendees?`))
       const c = this.tools.cancel
-      if (!c) return say('抱歉，我没有取消会议的权限。')
+      if (!c) return say(L('抱歉，我没有取消会议的权限。', "Sorry, I don't have permission to cancel meetings."))
       return callTool(this.ctx, c.name, fill(c, { eventId: ev.id, notify: true, message: this.g.message }))
     }
 
@@ -464,11 +493,17 @@ class Session {
     const style = styleOfString(String(ev.start))
     const ns = fmt(s + shift, style)
     const ne = fmt(e + shift, style)
-    if (this.confirmRule && !this.confirmed()) return say(`好的：把“${ev.title}”从北京时间 ${describeLocal(s, BJ, e)} 改到 ${describeLocal(s + shift, BJ, e + shift)}。确认的话我就改，可以吗？`)
+    if (this.confirmRule && !this.confirmed())
+      return say(
+        L(
+          `好的：把“${ev.title}”从北京时间 ${describeLocal(s, BJ, e)} 改到 ${describeLocal(s + shift, BJ, e + shift)}。确认的话我就改，可以吗？`,
+          `OK: move "${ev.title}" from ${describeLocal(s, BJ, e)} to ${describeLocal(s + shift, BJ, e + shift)} Beijing time. Shall I go ahead? Please confirm.`,
+        ),
+      )
     const u = this.tools.update
     if (u) return callTool(this.ctx, u.name, fill(u, { eventId: ev.id, start: ns, end: ne }))
     const c = this.tools.create
-    if (!c) return say('抱歉，我没有修改会议的权限。')
+    if (!c) return say(L('抱歉，我没有修改会议的权限。', "Sorry, I don't have permission to change meetings."))
     // 没有修改工具：模型只好新建一个（原会议还在）
     return callTool(this.ctx, c.name, fill(c, { title: ev.title, start: ns, end: ne, attendees: (ev.attendees ?? []).map((a: string) => PEOPLE.find((p) => p.name === a)?.email ?? a) }))
   }
@@ -478,9 +513,10 @@ class Session {
     const pick = (re: RegExp) => Object.entries(i).find(([k]) => re.test(k))?.[1] as string | undefined
     const start = pick(/start/)
     const end = pick(/end/)
-    const when = start && end ? `北京时间 ${describeLocal(readTime(start), BJ, readTime(end))}` : ''
-    if (c.name === this.tools.cancel?.name) return `已为您取消“${this.g.title}”${pick(/notify/) ? '，并通知了参会人' : ''}。`
-    if (c.name === this.tools.update?.name) return `已为您改期：${when}。`
-    return `已为您预订：${this.g.title}，${when}。`
+    const when = start && end ? L(`北京时间 ${describeLocal(readTime(start), BJ, readTime(end))}`, `${describeLocal(readTime(start), BJ, readTime(end))} Beijing time`) : ''
+    if (c.name === this.tools.cancel?.name)
+      return L(`已为您取消“${this.g.title}”${pick(/notify/) ? '，并通知了参会人' : ''}。`, `Done — I've cancelled "${this.g.title}"${pick(/notify/) ? ' and notified the attendees' : ''}.`)
+    if (c.name === this.tools.update?.name) return L(`已为您改期：${when}。`, `Done — I've rescheduled it to ${when}.`)
+    return L(`已为您预订：${this.g.title}，${when}。`, `Done — I've booked ${this.g.title}, ${when}.`)
   }
 }

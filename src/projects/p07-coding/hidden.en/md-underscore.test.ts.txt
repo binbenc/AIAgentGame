@@ -1,0 +1,11 @@
+import { expect, test } from 'testkit'
+import { renderInline } from '../src/inline'
+
+test('underscores inside words are not emphasis', () => {
+  expect(renderInline('snake_case_name')).toBe('snake_case_name')
+  expect(renderInline('call get_user_by_id()')).toBe('call get_user_by_id()')
+})
+
+test('standalone _italic_ still works', () => {
+  expect(renderInline('use _this_ one')).toBe('use <em>this</em> one')
+})

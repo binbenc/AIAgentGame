@@ -9,6 +9,57 @@
  *   部分 view 事件的停留时长缺失（非 view 事件本来就没有停留时长）。
  * - nps.csv：评分有 'N/A' 和空值；城市写法不一致（上海 / 上海市 / Shanghai）；评论里有逗号和引号；少量重复提交。
  */
+import { L, LOCALE } from '../../../engine/locale'
+
+/**
+ * English data: the same rows (generated with the same random stream), with the text values translated.
+ * Messy spellings stay messy: east / EAST / East Region for East, Shanghai City / SHANGHAI / shanghai for Shanghai.
+ * Comments that mention 配送 are exactly the ones that mention "delivery" (the delivery-complaints task relies on it).
+ */
+const EN_TEXT: Record<string, string> = {
+  华东: 'East',
+  华南: 'South',
+  华北: 'North',
+  西南: 'Southwest',
+  east: 'east',
+  East: 'EAST',
+  华东区: 'East Region',
+  south: 'south',
+  华南区: 'South Region',
+  蔬果: 'Produce',
+  肉禽: 'Meat',
+  日百: 'Household',
+  上海: 'Shanghai',
+  上海市: 'Shanghai City',
+  Shanghai: 'SHANGHAI',
+  shanghai: 'shanghai',
+  北京: 'Beijing',
+  北京市: 'Beijing City',
+  杭州: 'Hangzhou',
+  深圳: 'Shenzhen',
+  成都: 'Chengdu',
+  App: 'App',
+  小程序: 'Mini Program',
+  '配送很快，蔬菜也新鲜': 'Fast delivery, and the vegetables are fresh',
+  '价格实惠，会一直买': "Good prices, I'll keep buying",
+  '品质稳定，推荐给了邻居': 'Consistent quality, recommended it to my neighbors',
+  '小程序很好用，下单方便': 'The mini program is easy to use, ordering is simple',
+  '早上下单，中午就到了，"准时达"名不虚传': 'Ordered in the morning, arrived by noon, "on-time delivery" lives up to its name',
+  '肉的品质很好，包装干净': 'Great meat, clean packaging',
+  '还行吧，偶尔缺货': "It's OK, sometimes out of stock",
+  '价格一般，活动多的时候再买': 'Prices are so-so, I buy when there are promotions',
+  配送时间能再准一点就好了: 'Wish the delivery times were more accurate',
+  品类可以再多一些: 'Could use a wider selection',
+  '配送太慢了，等了两个多小时': 'Delivery is way too slow, waited over two hours',
+  '水果不新鲜，有一盒是烂的': "Fruit wasn't fresh, one box was rotten",
+  '客服态度差，退款拖了一周': 'Rude customer service, the refund took a week',
+  '配送员把东西放错了楼，"送达"了但我没收到': 'The delivery driver left it at the wrong building, marked "done" but I never got it',
+  '价格比楼下菜场贵，不划算': 'Pricier than the market downstairs, not worth it',
+  '配送费涨了，不想用了': 'The delivery fee went up, not using it anymore',
+  '经常缺货，下单后又被取消': 'Often out of stock, orders get cancelled after I place them',
+}
+/** Translate a generated text value (identity in Chinese; never consumes randomness, so numbers stay identical) */
+const tr = (s: string) => (LOCALE === 'en' ? (EN_TEXT[s] ?? s) : s)
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -77,7 +128,7 @@ function sales(rng: () => number): string {
           rev = ''
           ref = ''
         } else if (dirty && roll < 0.165) rev = commas(revenue)
-        rows.push(line([date, r, category, String(orders), rev, ref]))
+        rows.push(line([date, tr(r), tr(category), String(orders), rev, ref]))
       }
   }
   return ['date,region,category,orders,revenue,refund', ...withDuplicates(rows, rng, 0.025)].join('\n')
@@ -156,7 +207,7 @@ function nps(rng: () => number): string {
     const roll = rng()
     const s = dirty && roll < 0.04 ? 'N/A' : dirty && roll < 0.07 ? '' : String(score)
     const date = `2026-03-${pad(1 + Math.floor(rng() * 14))} ${pad(8 + Math.floor(rng() * 14))}:${pad(Math.floor(rng() * 60))}`
-    rows.push(line([`r${pad(i + 1, 4)}`, city, s, rng() < 0.6 ? 'App' : '小程序', pool[Math.floor(rng() * pool.length)], date]))
+    rows.push(line([`r${pad(i + 1, 4)}`, tr(city), s, tr(rng() < 0.6 ? 'App' : '小程序'), tr(pool[Math.floor(rng() * pool.length)]), date]))
   }
   return ['resp_id,city,score,channel,comment,submitted_at', ...withDuplicates(rows, rng, 0.02)].join('\n')
 }
@@ -166,11 +217,18 @@ export interface DatasetInfo {
   description: string
 }
 
-export const DATASET_INFO: DatasetInfo[] = [
-  { name: 'sales', description: '门店日销售：2025-12-01 至 2026-03-31，每天 × 地区 × 品类一行（orders 订单数，revenue 销售额（元），refund 退款金额（元））' },
-  { name: 'events', description: 'App 埋点：2026-03-01 至 2026-03-14 的用户行为事件（view 浏览 / add_cart 加购 / checkout 下单 / pay 支付），duration_ms 是浏览停留时长（毫秒）' },
-  { name: 'nps', description: 'NPS 满意度调研：2026 年 3 月上旬，每行一份问卷（score 0–10 分，comment 是用户的文字评价）' },
-]
+export const DATASET_INFO: DatasetInfo[] = L(
+  [
+    { name: 'sales', description: '门店日销售：2025-12-01 至 2026-03-31，每天 × 地区 × 品类一行（orders 订单数，revenue 销售额（元），refund 退款金额（元））' },
+    { name: 'events', description: 'App 埋点：2026-03-01 至 2026-03-14 的用户行为事件（view 浏览 / add_cart 加购 / checkout 下单 / pay 支付），duration_ms 是浏览停留时长（毫秒）' },
+    { name: 'nps', description: 'NPS 满意度调研：2026 年 3 月上旬，每行一份问卷（score 0–10 分，comment 是用户的文字评价）' },
+  ],
+  [
+    { name: 'sales', description: 'Daily store sales, 2025-12-01 to 2026-03-31, one row per day × region × category (orders = order count, revenue = sales in ¥, refund = refunds in ¥)' },
+    { name: 'events', description: 'App analytics events, 2026-03-01 to 2026-03-14 (view / add_cart / checkout / pay); duration_ms is time spent on a view (milliseconds)' },
+    { name: 'nps', description: 'NPS survey, early March 2026, one response per row (score 0–10, comment is free-text feedback)' },
+  ],
+)
 
 let cache: Record<string, string> | undefined
 

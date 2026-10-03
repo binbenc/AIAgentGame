@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Agent Quest: a static web app (Vite + React 19 + TypeScript + Tailwind v4 + Monaco) that teaches AI agent engineering as a game. Players write real TypeScript in the browser; it runs in a Web Worker sandbox and is graded automatically. There are two modes: 20 cumulative **levels** (`src/content/levels/`) and 11 open-ended **projects** modeled on agent benchmarks (`src/projects/`). Everything works offline against a deterministic mock model; real models (Anthropic / OpenAI-compatible) are optional and use the player's own key.
 
-UI copy, level/project content and assertion messages are written in **Simplified Chinese**; code identifiers are English. `README.md` is English, `README.zh-CN.md` is the Chinese mirror — keep both in sync.
+Everything player-facing is **bilingual (English default, Simplified Chinese)**: UI, level/project content, assertion messages, mock-model replies, starter and reference code. The locale is fixed at startup (switching reloads the page) and picked with `L(zh, en)` from `src/engine/locale.ts` at module load — in the sandbox worker via the worker name, in Node via `AQ_LOCALE`. Markdown has `*.en.md` siblings; code has `starter.en/` / `solution.en/` overlays merged by `localizedFiles()`; budgets are per-locale. **Read `docs/I18N.md` before adding or changing any content** — the Chinese behavior must stay unchanged and mocks must detect player instructions in both languages. Code identifiers are English. `README.md` is English, `README.zh-CN.md` is the Chinese mirror — keep both in sync.
 
 ## Commands
 
@@ -14,8 +14,8 @@ npm only (no pnpm). TypeScript is v7 (native `tsc`).
 
 ```bash
 npm run dev                       # http://localhost:5173
-npm test                          # vitest: engine + level + project integrity (tests/**/*.test.ts)
-npx vitest run -t "l07"           # one level
+npm test                          # vitest: engine + level + project integrity, run once per locale (vitest projects en / zh)
+npx vitest run -t "l07"           # one level (both locales); add --project en for one locale
 npx vitest run tests/projects.test.ts -t p05   # one project
 npx tsc --noEmit -p .             # typecheck (delete the stray tsconfig.tsbuildinfo it may leave)
 npm run build                     # tsc -b && vite build → dist/
@@ -27,7 +27,7 @@ npm run verify:project-export     # same per project (PROJECT=p05 for one)
 npm run proxy                     # local CORS proxy for real-model calls
 ```
 
-`budgets` / `verify:*` / `project-report` are vitest files in `scripts/`, selected via the `SCRIPT=` env var in `vite.config.ts`.
+`budgets` / `verify:*` / `project-report` are vitest files in `scripts/`, selected via the `SCRIPT=` env var in `vite.config.ts`; they run in `AQ_LOCALE` (default `en`), e.g. `AQ_LOCALE=zh npm run budgets`.
 
 CI: `.github/workflows/deploy-pages.yml` runs `npm test` + build and deploys to GitHub Pages on every push to `main` (https://binbenc.github.io/AIAgentGame/). `base: './'` + hash routing make the subpath work — keep asset URLs relative.
 
@@ -48,7 +48,7 @@ CI: `.github/workflows/deploy-pages.yml` runs `npm test` + build and deploys to 
 
 **Integrity tests** (`tests/levels.test.ts`, `tests/projects.test.ts`) enforce: reference solution earns ★★★ in mock mode, starter fails (projects: 0 stars), file declarations are valid, and the final level workspace passes every level. Budgets are set to ~1.2× the reference solution's tokens.
 
-**Exports**: `src/export/buildZip.ts` + `src/export/template/**` (graduation Node project), `src/projects/exportProject.ts` (per-project export with `npm test` = mock core set, `npm run bench` = real-model benchmark).
+**Exports**: `src/export/buildZip.ts` + `src/export/template/**` (graduation Node project; `template.en/` overlays English files; the exported `locale.ts` defaults to the export-time locale), `src/projects/exportProject.ts` (per-project export with `npm test` = mock core set, `npm run bench` = real-model benchmark).
 
 **UI (`src/features/`, `src/state/`)**: zustand stores — `state/progress.ts` (files, borrowed, level/project progress, persisted via idb-keyval) and `state/settings.ts`. Pages under `features/level`, `features/projects` (lazy-loaded); `features/editor/CompareView.tsx` shows reference solutions side-by-side / as a Monaco diff, using a separate `file:///reference/` model root so reference imports resolve. `window.__agentQuest.useProgress` is exposed for e2e tests.
 

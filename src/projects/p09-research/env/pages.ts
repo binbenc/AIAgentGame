@@ -4,6 +4,9 @@
  * summary 是搜索结果里显示的摘要：刻意不包含关键事实——要拿到事实，必须打开（fetch）网页全文。
  * boost 是网页的“热度”，会放大搜索得分：热门的论坛帖、SEO 页面往往排在官方公告前面。
  */
+import { L } from '../../../engine/locale'
+import { PAGES_EN } from './pages.en'
+
 export type SourceType = 'official' | 'news' | 'blog' | 'forum'
 
 export interface WebPageData {
@@ -22,7 +25,7 @@ export interface WebPageData {
 
 const p = (x: WebPageData) => x
 
-export const PAGES: WebPageData[] = [
+const PAGES_ZH: WebPageData[] = [
   // ———————————— 星衡机器人 ————————————
   p({
     url: 'https://www.xingheng-robot.com/about',
@@ -626,3 +629,6 @@ export const PAGES: WebPageData[] = [
     text: '远峰和星衡的交易大家怎么看？\n楼主：我听说是 25 亿，溢价不低。\n2 楼：新闻里写了金额的，你去看看原文。\n3 楼：人形机器人现在估值都高。',
   }),
 ]
+
+/** English corpus: pages.en.ts (same URLs, dates, source types and boosts) */
+export const PAGES: WebPageData[] = L(PAGES_ZH, PAGES_EN)

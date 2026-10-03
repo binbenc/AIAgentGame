@@ -15,9 +15,12 @@
 import { callTools, say } from '../../engine/llm/mock-kit'
 import type { MockModel } from '../../engine/llm/providers/mock'
 import { blocksOf, type ChatRequest, type ToolSpec, type ToolUseBlock } from '../../engine/llm/types'
+import { L } from '../../engine/locale'
 import {
   addDays,
   ATTRACTION_BY_ID,
+  CITY_CODE,
+  FLIGHT,
   HOTEL_BY_ID,
   openFor,
   RESTAURANT_BY_ID,
@@ -51,7 +54,7 @@ export interface DraftOptions {
 }
 
 const DEFAULT_WINDOW = { start: toMin('08:00'), end: toMin('21:00') }
-const CODE_OF = (city: string) => ({ 北京: 'BJ', 上海: 'SH', 杭州: 'HZ', 成都: 'CD', 西安: 'XA', 厦门: 'XM', 广州: 'GZ', 重庆: 'CQ' })[city] ?? 'XX'
+const CODE_OF = (city: string) => CITY_CODE[city] ?? 'XX'
 const mmdd = (date: string) => date.slice(5).replace('-', '')
 
 interface Leg {
@@ -91,7 +94,7 @@ export function draftPlan(spec: TripSpec, o: DraftOptions): TravelPlan {
     if (o.forceLegs) t = transportById(o.forceLegs[k])
     else {
       let cands = transportsSeen(leg, o.seen)
-      if (p.noFlight) cands = cands.filter((x) => x.mode !== '飞机')
+      if (p.noFlight) cands = cands.filter((x) => x.mode !== FLIGHT)
       // 从游玩城市出发的那一程：知道要留出游玩时间后，挑下午晚些的班次
       if (timing && leg.from !== spec.origin) {
         const late = cands.filter((x) => toMin(x.depart) >= toMin('16:00'))
@@ -233,30 +236,31 @@ function view(req: ChatRequest, spec: TravelTaskLike, check?: ToolSpec): View {
 type TravelTaskLike = TripSpec & { id: string; request: string }
 
 const STRUCTURED = /"(preferences|noFlight|cuisines|maxAttractionsPerDay)"\s*:/
+// 中英文的说法都认，不随界面语言变化
 const PREF_IN_SYSTEM: [PrefKey, RegExp][] = [
-  ['noFlight', /不坐飞机|不乘坐?飞机|不能坐飞机|只坐高铁|不要(安排|选)?(航班|飞机)/],
-  ['pets', /宠物/],
-  ['accessible', /无障碍|轮椅/],
-  ['cuisines', /菜系|想吃/],
-  ['maxAttractionsPerDay', /每天最多|景点.{0,10}(上限|不超过|最多)/],
-  ['roomType', /房型/],
+  ['noFlight', /不坐飞机|不乘坐?飞机|不能坐飞机|只坐高铁|不要(安排|选)?(航班|飞机)|no flights?|not fly|n't fly|never fly|trains? only|only (take )?(the )?trains?|avoid (flights|flying)/i],
+  ['pets', /宠物|\bpets?\b/i],
+  ['accessible', /无障碍|轮椅|accessib|wheelchair|barrier-free/i],
+  ['cuisines', /菜系|想吃|cuisine/i],
+  ['maxAttractionsPerDay', /每天最多|景点.{0,10}(上限|不超过|最多)|(at most|max(imum)?|no more than|limit).{0,30}(per|a|each) day|attractions?.{0,15}(limit|cap|at most|max)/i],
+  ['roomType', /房型|room type/i],
 ]
 const PREF_IN_FEEDBACK: [PrefKey, RegExp][] = [
-  ['noFlight', /飞机|航班/],
-  ['pets', /宠物/],
-  ['accessible', /无障碍|轮椅/],
-  ['cuisines', /菜系|想吃|口味/],
-  ['maxAttractionsPerDay', /景点.{0,12}(超过|最多|上限)|(超过|最多|上限).{0,8}个?景点/],
-  ['roomType', /房型|要求.{0,4}(家庭房|大床房|双床房)/],
+  ['noFlight', /飞机|航班|\bflights?\b|\bfly\b|\bplanes?\b/i],
+  ['pets', /宠物|\bpets?\b|\bdogs?\b|\bcats?\b/i],
+  ['accessible', /无障碍|轮椅|accessib|wheelchair|barrier-free/i],
+  ['cuisines', /菜系|想吃|口味|cuisine|wants? to eat|wants? .{0,30}(food|restaurant|meal)|no (meal|restaurant).{0,30}(is|serves)|no \w+ (restaurant|meal)/i],
+  ['maxAttractionsPerDay', /景点.{0,12}(超过|最多|上限)|(超过|最多|上限).{0,8}个?景点|attractions?.{0,20}(more than|at most|max|limit)|(more than|at most|max|limit).{0,20}attractions?/i],
+  ['roomType', /房型|要求.{0,4}(家庭房|大床房|双床房)|room type|wants? an? (king|twin|family) room/i],
 ]
 const FIX_IN_FEEDBACK: [FixKey, RegExp][] = [
-  ['budget', /超.{0,6}预算|预算.{0,12}(超|不够|不足)/],
-  ['timing', /到达|出发|发车|起飞|来不及|可活动时间|时间窗/],
-  ['hours', /营业/],
-  ['closure', /闭馆|休息日|不开放/],
-  ['minNights', /最少.{0,4}(连住|入住)|至少.{0,4}(连住|入住)|最短入住|起住/],
+  ['budget', /超.{0,6}预算|预算.{0,12}(超|不够|不足)|over (the )?(¥\d+ )?budget|exceeds? (the )?(¥\d+ )?budget|budget.{0,20}(exceeded|not enough|too (low|small)|short)/i],
+  ['timing', /到达|出发|发车|起飞|来不及|可活动时间|时间窗|\barriv|\bdepart|free time|time window/i],
+  ['hours', /营业|opening hours|\bnot open (at|for)\b/i],
+  ['closure', /闭馆|休息日|不开放|closed on/i],
+  ['minNights', /最少.{0,4}(连住|入住)|至少.{0,4}(连住|入住)|最短入住|起住|minimum (stay|of \d+ nights?)|at least \d+ nights?/i],
 ]
-const PROBLEM = /不存在|违反|问题|错误|不满足|不符合|超出|没有安排|✗|invalid|violation/i
+const PROBLEM = /不存在|违反|问题|错误|不满足|不符合|超出|没有安排|✗|invalid|violation|problem|issue|missing|not (in|among) the options|doesn't exist|exceed|over (the )?budget/i
 
 function awareness(v: View, spec: TripSpec): { aware: Set<PrefKey>; fixes: Set<FixKey>; budgetHits: number } {
   const aware = new Set<PrefKey>()
@@ -326,26 +330,27 @@ function tripRequestOf(spec: TripSpec) {
 
 export const mock: MockModel = (req, ctx) => {
   const spec = TRAVEL_TASKS.find((x) => x.id === ctx.scenario.split('#')[0])
-  if (!spec) return say('（模拟模型不认识这个任务）')
+  if (!spec) return say(L('（模拟模型不认识这个任务）', '(the mock model does not know this task)'))
   const box = toolbox(req)
   const v = view(req, spec, box.check)
   const hasTools = Object.keys(box).length > 0
 
   // 当评审：算不清账、也不会去查日历和营业时间，总说“看起来不错”
-  if (!hasTools && /评审|审核|审查|评估|reviewer|evaluat/i.test(v.system) && !/规划/.test(v.system))
+  if (!hasTools && /评审|审核|审查|评估|reviewer|evaluat|critic|review/i.test(v.system) && !/规划|planner|plan the trip/i.test(v.system))
     return say('{"pass": true, "score": 8, "feedback": []}')
 
   const knowsRequest = v.all.includes(spec.request) || STRUCTURED.test(v.restated)
-  if (!knowsRequest) return say('请告诉我客户的出行需求（出发地、目的地、日期、人数、预算和偏好）。')
+  if (!knowsRequest)
+    return say(L('请告诉我客户的出行需求（出发地、目的地、日期、人数、预算和偏好）。', "Please tell me the customer's travel request (origin, destinations, dates, number of people, budget and preferences)."))
 
   // 解析需求：输出结构化的 TripRequest
-  if (!hasTools && !v.seenIds.size && /TripRequest|提取|解析|抽取|结构化/i.test(v.all))
+  if (!hasTools && !v.seenIds.size && /TripRequest|提取|解析|抽取|结构化|extract|parse|structured/i.test(v.all))
     return say(JSON.stringify(tripRequestOf(spec), null, 1))
 
   // 有搜索工具：先把缺的数据查齐
   if (hasTools) {
     const calls = missingSearches(spec, box, v)
-    if (calls.length) return callTools(ctx, calls, '先查一下交通、酒店、餐厅和景点。')
+    if (calls.length) return callTools(ctx, calls, L('先查一下交通、酒店、餐厅和景点。', "Let me look up transport, hotels, restaurants and attractions first."))
   }
 
   const { aware, fixes, budgetHits } = awareness(v, spec)
@@ -356,8 +361,12 @@ export const mock: MockModel = (req, ctx) => {
     const cheapest = draftPlan(spec, { seen, aware, fixes })
     const c = costOf(spec, cheapest)
     if (c.total > spec.budget) {
-      const out: TravelPlan = { feasible: false, reason: `预算不足：按最省钱的方案也需要约 ${c.total} 元，超出预算 ${spec.budget} 元。`, days: [] }
-      return say(planText(out, '这个需求在预算内无法实现。'))
+      const out: TravelPlan = {
+        feasible: false,
+        reason: L(`预算不足：按最省钱的方案也需要约 ${c.total} 元，超出预算 ${spec.budget} 元。`, `Over budget: even the cheapest plan costs about ¥${c.total}, more than the ¥${spec.budget} budget.`),
+        days: [],
+      }
+      return say(planText(out, L('这个需求在预算内无法实现。', "This request can't be done within the budget.")))
     }
   }
 
@@ -365,9 +374,14 @@ export const mock: MockModel = (req, ctx) => {
   if (box.check) {
     const lastOk = v.lastCheck !== undefined && !PROBLEM.test(v.lastCheck) && ![...FIX_IN_FEEDBACK, ...PREF_IN_FEEDBACK].some(([, re]) => re.test(v.lastCheck!))
     const lastWasCheck = lastToolName(req) === box.check.name
-    if (!(lastWasCheck && lastOk) && v.checkCalls < 5) return callTools(ctx, [checkCall(box.check, plan)], v.checkCalls ? '根据检查结果修改了计划，再检查一遍。' : '先用检查工具核对一下这份计划。')
+    if (!(lastWasCheck && lastOk) && v.checkCalls < 5)
+      return callTools(
+        ctx,
+        [checkCall(box.check, plan)],
+        v.checkCalls ? L('根据检查结果修改了计划，再检查一遍。', "I revised the plan based on the check; let me check it again.") : L('先用检查工具核对一下这份计划。', 'Let me run the checker on this plan first.'),
+      )
   }
-  return say(planText(plan, fixes.size ? '根据校验结果修改后的行程计划：' : '以下是为客户规划的行程：'))
+  return say(planText(plan, fixes.size ? L('根据校验结果修改后的行程计划：', 'Here is the itinerary, revised based on the validation results:') : L('以下是为客户规划的行程：', "Here is the customer's itinerary:")))
 }
 
 function lastToolName(req: ChatRequest): string | undefined {

@@ -6,6 +6,8 @@
 
 🚀 **在线体验：<https://binbenc.github.io/AIAgentGame/>**（纯静态站点，进度只存在你自己的浏览器里；默认用模拟模型，不需要 API Key）
 
+> 🗣️ 支持英文（默认）和简体中文，点顶栏的按钮切换。
+
 - 💻 **真实代码**：在浏览器里用 Monaco 编辑器写 TS，代码跑在 Web Worker 沙箱里。
 - 💥 **真实失败**：确定性的模拟模型会按剧情制造线上事故（限流、幻觉工具、坏 JSON、上下文溢出、prompt 注入……），你需要亲手修好。
 - 📊 **可量化**：通过 ★ / 模型调用次数达标 ★★ / token 达标 ★★★；Trace 面板逐步展示 Agent 的每一次模型调用、工具调用，以及 Anthropic / OpenAI 两种协议的原始报文。
@@ -36,7 +38,7 @@
 ```bash
 npm install
 npm run dev              # 本地开发 http://localhost:5173
-npm test                 # 引擎 + 关卡完整性测试（每关参考实现三星通关、初始代码不能通关、回归）
+npm test                 # 引擎 + 关卡 + 项目完整性测试，中英文各跑一遍（参考实现三星通关、初始代码不能通关、回归）
 npm run budgets          # 打印每关参考实现的调用次数 / token，用来校准星级预算
 npm run verify:export    # 用全部参考实现生成导出工程，在临时目录 npm install && npm test && tsc
 npm run verify:project-export   # 每个实战项目单独导出并验证（PROJECT=p05 只验证一个）
@@ -81,7 +83,7 @@ npm run proxy            # 本地 CORS 代理（只监听 127.0.0.1，只转发�
 
 ## 🌍 i18n
 
-界面文案在 `src/i18n/zh.json`（i18next）。关卡内容是 Markdown，按关卡目录组织；要加英文，可以新增 `story.en.md` 等文件，并在 `LevelDef` 上增加语言维度。
+界面、关卡、实战项目、判题提示、模拟模型的回复，以及 starter 和参考代码，都有英文和简体中文两个版本。语言在启动时确定（`src/engine/locale.ts`，`L(zh, en)`），`npm test` 会用两种语言各跑一遍完整性测试。编写规范见 [docs/I18N.md](docs/I18N.md)。
 
 ## 📄 许可证
 

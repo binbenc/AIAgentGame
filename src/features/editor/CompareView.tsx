@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '../../ui/Button'
 import { CodeEditor, syncModels, uriOf } from './CodeEditor'
 import { monaco } from './monaco'
+import { L } from '../../engine/locale'
 
 type Mode = 'split' | 'diff'
 
@@ -135,12 +136,15 @@ export function CompareView({
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      alert('浏览器不允许写入剪贴板，可以在参考代码里选中后手动复制')
+      alert(L('浏览器不允许写入剪贴板，可以在参考代码里选中后手动复制', 'The browser blocked clipboard access — select the reference code and copy it manually'))
     }
   }
 
   function replace() {
-    const target = mine === undefined ? `你的工作区还没有 ${refPath}，要用参考实现创建它吗？` : `用参考实现覆盖你的 ${refPath}？覆盖后可以在编辑器里按 Ctrl/Cmd+Z 撤销。`
+    const target =
+      mine === undefined
+        ? L(`你的工作区还没有 ${refPath}，要用参考实现创建它吗？`, `${refPath} doesn't exist in your workspace yet. Create it from the reference?`)
+        : L(`用参考实现覆盖你的 ${refPath}？覆盖后可以在编辑器里按 Ctrl/Cmd+Z 撤销。`, `Overwrite your ${refPath} with the reference? You can undo with Ctrl/Cmd+Z in the editor.`)
     if (!confirm(target)) return
     const model = monaco.editor.getModel(uriOf(refPath))
     // 通过编辑操作替换（而不是 setValue），保留撤销栈
@@ -157,7 +161,7 @@ export function CompareView({
 
   const toolbar = (
     <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-slate-800 bg-slate-900/60 px-2 py-1">
-      <span className="shrink-0 text-xs font-semibold text-amber-300">参考实现</span>
+      <span className="shrink-0 text-xs font-semibold text-amber-300">{L('参考实现', 'Reference')}</span>
       {tabs.map((p) => (
         <button key={p} onClick={() => pickRef(p)} className={`shrink-0 font-mono ${tab(refPath === p)}`}>
           {p.replace(/^projects\//, '')}
@@ -166,26 +170,26 @@ export function CompareView({
       <div className="flex-1" />
       <div className="flex shrink-0 rounded-md border border-slate-700 p-0.5">
         <button className={tab(mode === 'split')} onClick={() => update({ mode: 'split' })}>
-          并排
+          {L('并排', 'Side by side')}
         </button>
         <button className={tab(mode === 'diff')} onClick={() => update({ mode: 'diff' })}>
-          差异
+          {L('差异', 'Diff')}
         </button>
       </div>
       {mode === 'split' && (
-        <label className="flex shrink-0 items-center gap-1 text-xs text-slate-400" title="切换左边的文件时，右边自动切到同名的参考文件">
+        <label className="flex shrink-0 items-center gap-1 text-xs text-slate-400" title={L('切换左边的文件时，右边自动切到同名的参考文件', 'When you switch files on the left, show the reference file with the same name')}>
           <input type="checkbox" checked={sync} onChange={(e) => update({ sync: e.target.checked })} />
-          同步切换
+          {L('同步切换', 'Sync files')}
         </label>
       )}
       <Button variant="ghost" className="shrink-0 !px-2 !py-0.5 !text-xs" onClick={copy}>
-        {copied ? '已复制 ✓' : '复制'}
+        {copied ? L('已复制 ✓', 'Copied ✓') : L('复制', 'Copy')}
       </Button>
-      <Button variant="ghost" className="shrink-0 !px-2 !py-0.5 !text-xs" onClick={replace} title="用参考实现替换你的同名文件（可撤销）">
-        用参考替换
+      <Button variant="ghost" className="shrink-0 !px-2 !py-0.5 !text-xs" onClick={replace} title={L('用参考实现替换你的同名文件（可撤销）', 'Replace your file of the same name with the reference (undoable)')}>
+        {L('用参考替换', 'Use reference')}
       </Button>
       <Button variant="ghost" className="shrink-0 !px-2 !py-0.5 !text-xs" onClick={onClose}>
-        ✕ 关闭对照
+        ✕ {L('关闭对照', 'Close comparison')}
       </Button>
     </div>
   )
@@ -195,10 +199,10 @@ export function CompareView({
       <div className="flex h-full min-h-0 flex-col">
         {toolbar}
         <div className="flex shrink-0 border-b border-slate-800 text-[11px] text-slate-500">
-          <span className="flex-1 px-3 py-0.5">参考实现（只读）</span>
+          <span className="flex-1 px-3 py-0.5">{L('参考实现（只读）', 'Reference (read-only)')}</span>
           <span className="flex-1 px-3 py-0.5">
-            我的实现（可编辑）· 点中间的箭头可以逐块采用参考代码
-            {mine === undefined && <span className="text-amber-400"> · 你的工作区还没有这个文件</span>}
+            {L('我的实现（可编辑）· 点中间的箭头可以逐块采用参考代码', 'Mine (editable) · click the arrows in the middle to take a reference hunk')}
+            {mine === undefined && <span className="text-amber-400"> · {L('你的工作区还没有这个文件', "this file doesn't exist in your workspace yet")}</span>}
           </span>
         </div>
         <div className="min-h-0 flex-1">
@@ -211,7 +215,7 @@ export function CompareView({
     <div className="flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col border-r border-slate-700">
         <div className="shrink-0 border-b border-slate-800 bg-slate-900/60 px-3 py-[7px] text-xs text-slate-400">
-          我的实现 · <span className="font-mono">{active.replace(/^projects\//, '')}</span>
+          {L('我的实现', 'Mine')} · <span className="font-mono">{active.replace(/^projects\//, '')}</span>
         </div>
         <div className="min-h-0 flex-1">
           <CodeEditor files={files} active={active} onChange={onChange} />

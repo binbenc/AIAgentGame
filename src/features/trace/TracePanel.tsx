@@ -3,6 +3,7 @@ import { toAnthropicParams } from '../../engine/llm/providers/anthropic'
 import { toOpenAIBody } from '../../engine/llm/providers/openai'
 import type { ChatRequest, ContentBlock, Message } from '../../engine/llm/types'
 import type { TraceEvent } from '../../engine/trace'
+import { L } from '../../engine/locale'
 
 function fmtMs(ms: number) {
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`
@@ -25,7 +26,7 @@ function blockSummary(b: ContentBlock): string {
     case 'tool_result':
       return `${b.is_error ? '❌' : '↩︎'} ${b.content}`
     case 'opaque':
-      return `[${(b.raw as { type?: string })?.type ?? 'opaque'} 块]`
+      return `[${(b.raw as { type?: string })?.type ?? 'opaque'}${L(' 块', ' block')}]`
   }
 }
 
@@ -48,10 +49,10 @@ function LlmDetail({ e }: { e: Extract<TraceEvent, { kind: 'llm' }> }) {
   const req = e.request as ChatRequest
   type T = 'chat' | 'anthropic' | 'openai' | 'wire'
   const tabs: [T, string][] = [
-    ['chat', '对话'],
-    ['anthropic', 'Anthropic 报文'],
-    ['openai', 'OpenAI 报文'],
-    ...(e.wire ? ([['wire', '实际发出的请求']] as [T, string][]) : []),
+    ['chat', L('对话', 'Conversation')],
+    ['anthropic', L('Anthropic 报文', 'Anthropic wire format')],
+    ['openai', L('OpenAI 报文', 'OpenAI wire format')],
+    ...(e.wire ? ([['wire', L('实际发出的请求', 'Request actually sent')]] as [T, string][]) : []),
   ]
   return (
     <div className="space-y-2">
@@ -81,7 +82,7 @@ function LlmDetail({ e }: { e: Extract<TraceEvent, { kind: 'llm' }> }) {
           {e.response && (
             <div className="border-t border-dashed border-slate-700 pt-1.5">
               <div className="mb-1 text-[10px] text-slate-500">
-                响应 · stop_reason={e.response.stop_reason} · in {e.response.usage.input_tokens} / out {e.response.usage.output_tokens} tokens · {e.response.model}
+                {L('响应', 'Response')} · stop_reason={e.response.stop_reason} · in {e.response.usage.input_tokens} / out {e.response.usage.output_tokens} tokens · {e.response.model}
               </div>
               <MessageView m={{ role: 'assistant', content: e.response.content }} />
             </div>
@@ -103,7 +104,7 @@ function LlmDetail({ e }: { e: Extract<TraceEvent, { kind: 'llm' }> }) {
       )}
       {tab === 'wire' && e.wire && (
         <>
-          <div className="break-all text-[11px] text-slate-500">POST {e.wire.url}（请求头里的密钥已隐去）</div>
+          <div className="break-all text-[11px] text-slate-500">POST {e.wire.url} {L('（请求头里的密钥已隐去）', '(secrets in headers redacted)')}</div>
           <Json value={e.wire.body} />
         </>
       )}
@@ -121,8 +122,12 @@ function Row({ e }: { e: TraceEvent }) {
     case 'llm': {
       icon = '🧠'
       const tools = e.response?.content.filter((b) => b.type === 'tool_use').map((b) => (b as { name: string }).name) ?? []
-      title = e.error ? `模型调用失败：${e.error}` : tools.length ? `模型 → 调用 ${tools.join(', ')}` : `模型 → ${e.response?.stop_reason}`
-      meta = `${fmtMs(e.durationMs)}${e.response ? ` · ${e.response.usage.input_tokens}+${e.response.usage.output_tokens} tok` : ''}${e.streamed ? ' · 流式' : ''}`
+      title = e.error
+        ? `${L('模型调用失败：', 'Model call failed: ')}${e.error}`
+        : tools.length
+          ? `${L('模型 → 调用 ', 'Model → calls ')}${tools.join(', ')}`
+          : `${L('模型', 'Model')} → ${e.response?.stop_reason}`
+      meta = `${fmtMs(e.durationMs)}${e.response ? ` · ${e.response.usage.input_tokens}+${e.response.usage.output_tokens} tok` : ''}${e.streamed ? L(' · 流式', ' · streamed') : ''}`
       tone = e.error ? 'text-rose-300' : 'text-violet-200'
       break
     }
@@ -167,11 +172,11 @@ function Row({ e }: { e: TraceEvent }) {
           ) : e.kind === 'tool' ? (
             <div className="grid gap-2 md:grid-cols-2">
               <div>
-                <div className="mb-1 text-[10px] text-slate-500">输入</div>
+                <div className="mb-1 text-[10px] text-slate-500">{L('输入', 'Input')}</div>
                 <Json value={e.input} />
               </div>
               <div>
-                <div className="mb-1 text-[10px] text-slate-500">{e.error ? '错误' : '输出'}</div>
+                <div className="mb-1 text-[10px] text-slate-500">{e.error ? L('错误', 'Error') : L('输出', 'Output')}</div>
                 <Json value={e.error ?? e.output} />
               </div>
             </div>
@@ -183,7 +188,7 @@ function Row({ e }: { e: TraceEvent }) {
 }
 
 export function TracePanel({ events }: { events: TraceEvent[] }) {
-  if (!events.length) return <div className="p-4 text-xs text-slate-500">这个场景没有产生任何事件。</div>
+  if (!events.length) return <div className="p-4 text-xs text-slate-500">{L('这个场景没有产生任何事件。', 'This scenario produced no events.')}</div>
   return (
     <ul className="text-sm">
       {events.map((e) => (

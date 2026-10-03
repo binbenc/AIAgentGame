@@ -9,6 +9,7 @@ import { runProject } from '../../projects/runner'
 import { AbortError, LLMError, type ChatOptions, type ChatRequest, type ChatResponse, type Provider, type StreamEvent } from '../llm/types'
 import type { WireListener } from '../llm/providers/config'
 import type { HostMessage, SerializedError, WorkerMessage } from './protocol'
+import { L } from '../locale'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -84,7 +85,7 @@ self.onmessage = async (ev: MessageEvent<HostMessage>) => {
   const m = ev.data
   if (m.type === 'run') {
     const level = LEVELS.find((l) => l.id === m.levelId)
-    if (!level) return post({ type: 'fatal', error: { name: 'Error', message: `未知关卡 ${m.levelId}` } })
+    if (!level) return post({ type: 'fatal', error: { name: 'Error', message: L(`未知关卡 ${m.levelId}`, `Unknown level ${m.levelId}`) } })
     try {
       const result = await runSuite({
         suite: level.suite,
@@ -104,7 +105,7 @@ self.onmessage = async (ev: MessageEvent<HostMessage>) => {
   }
   if (m.type === 'run-project') {
     const project = projectById(m.projectId)
-    if (!project) return post({ type: 'fatal', error: { name: 'Error', message: `未知项目 ${m.projectId}` } })
+    if (!project) return post({ type: 'fatal', error: { name: 'Error', message: L(`未知项目 ${m.projectId}`, `Unknown project ${m.projectId}`) } })
     try {
       const result = await runProject({
         project,

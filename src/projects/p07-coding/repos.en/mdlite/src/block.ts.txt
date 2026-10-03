@@ -1,0 +1,45 @@
+import { renderInline } from './inline'
+
+/** Render a whole Markdown document to HTML, one block per line */
+export function renderMarkdown(src: string): string {
+  const out: string[] = []
+  let inList = false
+  const closeList = () => {
+    if (inList) {
+      out.push('</ul>')
+      inList = false
+    }
+  }
+
+  for (const raw of src.split('\n')) {
+    const line = raw.trimEnd()
+    if (!line.trim()) {
+      closeList()
+      continue
+    }
+
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line)
+    if (heading) {
+      closeList()
+      const level = heading[1].length
+      out.push(`<h${level}>${renderInline(heading[2])}</h${level}>`)
+      continue
+    }
+
+    const item = /^[-*]\s+(.*)$/.exec(line)
+    if (item) {
+      if (!inList) {
+        out.push('<ul>')
+        inList = true
+      }
+      out.push(`<li>${renderInline(item[1])}</li>`)
+      continue
+    }
+
+    closeList()
+    out.push(`<p>${renderInline(line)}</p>`)
+  }
+
+  closeList()
+  return out.join('\n')
+}

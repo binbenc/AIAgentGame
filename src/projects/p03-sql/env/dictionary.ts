@@ -1,5 +1,7 @@
+import { L } from '../../../engine/locale'
+
 /** 数据团队维护的数据字典：字段含义、状态码、金额单位、指标口径。describeTable 里没有这些信息。 */
-export const DATA_DICTIONARY = `# 拾光盒子 · 数据字典（v3.2）
+const DATA_DICTIONARY_ZH = `# 拾光盒子 · 数据字典（v3.2）
 
 数据截止日：2026-03-15。问题里的「今天」「今年」「本月」「上个月」「最近 N 天」都以这一天为准（最近 N 天含当天）。
 
@@ -34,8 +36,45 @@ export const DATA_DICTIONARY = `# 拾光盒子 · 数据字典（v3.2）
 - 活动 ROI：活动带来的 GMV（orders.campaign_id 关联）÷ 活动预算 budget，两者都用元。
 `
 
+const DATA_DICTIONARY_EN = `# Glimmer Box · Data Dictionary (v3.2)
+
+Data cutoff date: 2026-03-15. "Today", "this year", "this month", "last month" and "the last N days" in questions are all relative to this date (the last N days include it).
+
+## General rules
+
+- Money unit: orders.amt, order_items.unit_amt, refunds.refund_amt and products.list_price are integers in fen (cents). Always report in yuan (÷ 100 — watch out for integer division). Exception: campaigns.budget is in yuan.
+- Test accounts never count toward business metrics: customers.is_test = 1 marks internal test accounts. Exclude their orders, sessions and refunds (unless the question is about test accounts).
+- Time columns are text: orders.created_at and sessions.ts look like '2026-03-15 14:05:09'; customers.reg_dt and refunds.refund_dt look like '2026-03-15'. Orders belong to the day / month of created_at.
+
+## Tables
+
+- customers: tier is the membership level, 0 = regular, 1 = silver, 2 = gold; is_test flags test accounts.
+- orders (the only trustworthy orders table): status code 1 = pending payment, 2 = paid, 3 = shipped, 4 = completed, 9 = cancelled. channel: app = mobile app, mini = WeChat mini program, web = website. campaign_id: the marketing campaign that brought in the order; may be NULL.
+- order_items: one row per product in an order; qty = quantity, unit_amt = actual unit price.
+- products: is_active = 1 means on sale; list_price is the list price.
+- categories: two levels. Rows with NULL parent_id are top-level categories; the rest are subcategories under one of them. products.cat_id points to a subcategory.
+- refunds: state = approved / rejected / pending. Only approved refunds actually paid money back.
+- campaigns: marketing campaigns; budget is the campaign budget.
+- sessions: one row each time a user opens the app / mini program / website.
+- orders_old: ⚠️ deprecated. Snapshot of the old orders table from before the 2025-06 migration: incomplete, stale statuses, duplicate rows, amounts in yuan. Never use it for any metric — always use orders.
+
+## Metric definitions
+
+- Paid orders: status ∈ {2, 3, 4} (paid, shipped, completed). Pending and cancelled orders don't count.
+- GMV (gross merchandise value): sum of amt over paid orders, in yuan. "Sales", "how much we sold", "revenue" and "turnover" all mean GMV.
+- Net revenue: GMV minus the refund_amt of approved refunds on those orders (yuan).
+- AOV (average order value): GMV ÷ number of paid orders (yuan).
+- Product sales: sum of qty × unit_amt for the product across paid orders (yuan).
+- Refund rate: paid orders with an approved refund ÷ paid orders, as a decimal.
+- Active users: distinct customers with at least one session in the last 30 days (2026-02-14 to 2026-03-15, inclusive).
+- New users: counted by customers.reg_dt.
+- Campaign ROI: GMV brought in by the campaign (joined via orders.campaign_id) ÷ campaign budget, both in yuan.
+`
+
+export const DATA_DICTIONARY = L(DATA_DICTIONARY_ZH, DATA_DICTIONARY_EN)
+
 /** 数据字典里各条规则的标志性文字：模拟模型据此判断它“读过”哪条规则 */
-export const DICT = {
+export const DICT_ZH = {
   today: '数据截止日：2026-03-15',
   cents: '单位：分',
   test: '测试账号不计入任何业务指标',
@@ -54,3 +93,27 @@ export const DICT = {
   roi: '活动 ROI',
   channel: 'mini = 微信小程序',
 } as const
+
+/** 英文数据字典里对应的标志性文字（key 和 DICT_ZH 一一对应） */
+export const DICT_EN: Record<keyof typeof DICT_ZH, string> = {
+  today: 'Data cutoff date: 2026-03-15',
+  cents: 'integers in fen (cents)',
+  test: 'Test accounts never count toward business metrics',
+  status: '4 = completed, 9 = cancelled',
+  old: '⚠️ deprecated',
+  paid: 'Paid orders: status ∈ {2, 3, 4}',
+  gmv: 'GMV (gross merchandise value)',
+  net: 'Net revenue:',
+  aov: 'AOV (average order value):',
+  item: 'Product sales:',
+  refundRate: 'Refund rate:',
+  active: 'Active users: distinct customers with at least one session in the last 30 days',
+  tier: '2 = gold',
+  category: 'Rows with NULL parent_id are top-level categories',
+  refundState: 'Only approved refunds actually paid money back',
+  roi: 'Campaign ROI',
+  channel: 'mini = WeChat mini program',
+}
+
+/** 当前语言的数据字典里的标志性文字 */
+export const DICT: Record<keyof typeof DICT_ZH, string> = L(DICT_ZH, DICT_EN)

@@ -1,0 +1,16 @@
+export interface LineItem {
+  sku: string
+  name: string
+  /** Unit price in cents */
+  unitPrice: number
+  quantity: number
+}
+
+export interface Coupon {
+  code: string
+  /** percent: value is the percentage off (10 = 10% off); fixed: value is the amount off (cents) */
+  kind: 'percent' | 'fixed'
+  value: number
+  /** Minimum spend (cents), checked against the original subtotal */
+  minSpend?: number
+}

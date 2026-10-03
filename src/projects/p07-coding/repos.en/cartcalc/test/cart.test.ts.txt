@@ -1,0 +1,17 @@
+import { expect, test } from 'testkit'
+import { subtotal } from '../src/cart'
+
+const pen = { sku: 'PEN', name: 'Fountain pen', unitPrice: 1250, quantity: 2 }
+const book = { sku: 'BOOK', name: 'Notebook', unitPrice: 899, quantity: 1 }
+
+test('subtotal', () => {
+  expect(subtotal([pen, book])).toBe(3399)
+})
+
+test('empty cart', () => {
+  expect(subtotal([])).toBe(0)
+})
+
+test('unit price cannot be negative', () => {
+  expect(() => subtotal([{ ...book, unitPrice: -1 }])).toThrow('Invalid unit price')
+})

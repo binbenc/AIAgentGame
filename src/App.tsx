@@ -6,6 +6,8 @@ import { HomePage } from './features/home/HomePage'
 import { MapPage } from './features/map/MapPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useProgress } from './state/progress'
+import { L, LOCALE } from './engine/locale'
+import { switchLocale } from './i18n'
 
 // 编辑器（Monaco）体积较大，按需加载
 // 项目墙和项目页包含 11 个项目的环境数据，按需加载
@@ -34,6 +36,13 @@ function Nav() {
         {t('nav.projects')}
       </NavLink>
       <div className="flex-1" />
+      <button
+        onClick={() => void switchLocale(LOCALE === 'en' ? 'zh' : 'en')}
+        title={LOCALE === 'en' ? '切换到中文' : 'Switch to English'}
+        className="rounded-md px-2 py-1.5 text-sm text-slate-400 hover:text-white"
+      >
+        {LOCALE === 'en' ? '中文' : 'EN'}
+      </button>
       <NavLink to="/settings" className={link}>
         {t('nav.settings')}
       </NavLink>
@@ -47,13 +56,13 @@ export function App() {
   useEffect(() => {
     void load()
   }, [load])
-  if (!loaded) return <div className="grid h-full place-items-center text-slate-500">加载存档…</div>
+  if (!loaded) return <div className="grid h-full place-items-center text-slate-500">{L('加载存档…', 'Loading save…')}</div>
   return (
     <HashRouter>
       <div className="flex h-full flex-col">
         <Nav />
         <main className="min-h-0 flex-1">
-          <Suspense fallback={<div className="grid h-full place-items-center text-slate-500">加载编辑器…</div>}>
+          <Suspense fallback={<div className="grid h-full place-items-center text-slate-500">{L('加载编辑器…', 'Loading editor…')}</div>}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/map" element={<MapPage />} />

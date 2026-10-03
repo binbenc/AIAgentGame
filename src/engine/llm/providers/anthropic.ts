@@ -12,6 +12,7 @@ import {
   type StreamEvent,
 } from '../types'
 import { resolveModel, viaProxy, type ProviderConfig, type WireListener } from './config'
+import { L } from '../../locale'
 
 const DEFAULT_MAX_TOKENS = 8192
 
@@ -71,7 +72,7 @@ export function fromAnthropicMessage(m: Anthropic.Message): ChatResponse {
 
 function mapError(e: unknown): Error {
   if (e instanceof Anthropic.APIUserAbortError) return new AbortError()
-  if (e instanceof Anthropic.APIConnectionError) return new LLMError(`网络错误：${e.message}`, 0, true)
+  if (e instanceof Anthropic.APIConnectionError) return new LLMError(`${L('网络错误：', 'Network error: ')}${e.message}`, 0, true)
   if (e instanceof Anthropic.APIError) {
     const status = e.status ?? 0
     return new LLMError(`${status} ${e.message}`, status, status === 408 || status === 409 || status === 429 || status >= 500)

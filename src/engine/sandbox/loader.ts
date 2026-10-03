@@ -1,4 +1,5 @@
 import { transform } from 'sucrase'
+import { L } from '../locale'
 
 export class CompileError extends Error {
   constructor(
@@ -45,7 +46,7 @@ export function createModuleSystem(files: Record<string, string>, builtins: Reco
   function resolve(from: string, spec: string): string {
     const base = normalize((dirname(from) ? dirname(from) + '/' : '') + spec)
     for (const cand of [base, `${base}.ts`, `${base}/index.ts`]) if (cand in files) return cand
-    throw new Error(`${from}: 找不到模块 "${spec}"`)
+    throw new Error(`${from}: ${L('找不到模块', 'cannot find module')} "${spec}"`)
   }
 
   function load(path: string): unknown {
@@ -57,7 +58,12 @@ export function createModuleSystem(files: Record<string, string>, builtins: Reco
     const require = (spec: string) => {
       if (spec in builtins) return builtins[spec]
       if (spec.startsWith('.')) return load(resolve(path, spec))
-      throw new Error(`${path}: 不允许导入 "${spec}"（只能导入相对路径或 ${Object.keys(builtins).join(', ')}）`)
+      throw new Error(
+      L(
+        `${path}: 不允许导入 "${spec}"（只能导入相对路径或 ${Object.keys(builtins).join(', ')}）`,
+        `${path}: importing "${spec}" is not allowed (only relative paths or ${Object.keys(builtins).join(', ')})`,
+      ),
+    )
     }
     const fn = new Function('require', 'module', 'exports', `${compiled.get(path)}\n//# sourceURL=workspace/${path}`)
     fn(require, module, module.exports)
@@ -67,7 +73,7 @@ export function createModuleSystem(files: Record<string, string>, builtins: Reco
   return {
     require(path: string): unknown {
       const p = normalize(path)
-      if (!(p in files)) throw new Error(`工作区里没有文件 ${p}`)
+      if (!(p in files)) throw new Error(L(`工作区里没有文件 ${p}`, `No file ${p} in the workspace`))
       return load(p)
     },
   }

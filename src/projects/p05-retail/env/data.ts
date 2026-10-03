@@ -1,4 +1,5 @@
 /** 优品商城的数据库：用户、订单、商品。仿照 τ-bench retail 领域，规模缩小、改成中文场景。 */
+import { L } from '../../../engine/locale'
 
 export interface Address {
   /** 完整地址（省市区 + 街道门牌），存储时去掉空白 */
@@ -73,22 +74,74 @@ export interface Db {
   products: Record<string, Product>
 }
 
-export const STATUS_TEXT: Record<OrderStatus, string> = {
-  pending: '待发货',
-  processed: '已发货（运输中）',
-  delivered: '已签收',
-  cancelled: '已取消',
-  'return requested': '退货处理中',
-  'exchange requested': '换货处理中',
+export const STATUS_TEXT: Record<OrderStatus, string> = L(
+  {
+    pending: '待发货',
+    processed: '已发货（运输中）',
+    delivered: '已签收',
+    cancelled: '已取消',
+    'return requested': '退货处理中',
+    'exchange requested': '换货处理中',
+  },
+  {
+    pending: 'pending (not shipped yet)',
+    processed: 'shipped (in transit)',
+    delivered: 'delivered',
+    cancelled: 'cancelled',
+    'return requested': 'return in progress',
+    'exchange requested': 'exchange in progress',
+  },
+)
+
+/** English names for product names, option keys and option values (the tables below are written in Chinese) */
+const EN: Record<string, string> = {
+  纯棉T恤: 'Cotton T-Shirt',
+  降噪蓝牙耳机: 'Bluetooth Earbuds',
+  轻跑跑步鞋: 'Lite Running Shoes',
+  真空保温杯: 'Vacuum Flask',
+  机械键盘: 'Mechanical Keyboard',
+  通勤双肩包: 'Commuter Backpack',
+  护眼台灯: 'Eye-Care Desk Lamp',
+  瑜伽垫: 'Yoga Mat',
+  颜色: 'color',
+  尺码: 'size',
+  降噪: 'noise cancelling',
+  容量: 'capacity',
+  轴体: 'switch',
+  背光: 'backlight',
+  功率: 'power',
+  厚度: 'thickness',
+  红色: 'red',
+  黑色: 'black',
+  蓝色: 'blue',
+  白色: 'white',
+  银色: 'silver',
+  粉色: 'pink',
+  灰色: 'gray',
+  紫色: 'purple',
+  绿色: 'green',
+  主动降噪: 'active',
+  无降噪: 'none',
+  红轴: 'red',
+  青轴: 'blue',
+  茶轴: 'brown',
+  有: 'yes',
+  无: 'no',
 }
+const tr = (s: string) => L(s, EN[s] ?? s)
 
 // —————————— 商品 ——————————
 
 type V = [item_id: string, options: Record<string, string>, price: number, available: boolean]
 const product = (product_id: string, name: string, variants: V[]): Product => ({
   product_id,
-  name,
-  variants: variants.map(([item_id, options, price, available]) => ({ item_id, options, price, available })),
+  name: tr(name),
+  variants: variants.map(([item_id, options, price, available]) => ({
+    item_id,
+    options: Object.fromEntries(Object.entries(options).map(([k, v]) => [tr(k), tr(v)])),
+    price,
+    available,
+  })),
 })
 
 const PRODUCTS: Product[] = [
@@ -147,19 +200,32 @@ const PRODUCTS: Product[] = [
 
 // —————————— 用户 ——————————
 
-const cc = (id: string, bank: string, last4: string): PaymentMethod => ({ id, source: 'credit_card', label: `${bank}信用卡（尾号 ${last4}）` })
-const gift = (id: string, balance: number): PaymentMethod => ({ id, source: 'gift_card', label: '优品礼品卡', balance })
-const alipay = (id: string): PaymentMethod => ({ id, source: 'alipay', label: '支付宝' })
+const BANK_EN: Record<string, string> = {
+  招商银行: 'China Merchants Bank',
+  工商银行: 'ICBC',
+  建设银行: 'CCB',
+  中国银行: 'Bank of China',
+  交通银行: 'Bank of Communications',
+  浦发银行: 'SPD Bank',
+  平安银行: 'Ping An Bank',
+}
+const cc = (id: string, bank: string, last4: string): PaymentMethod => ({
+  id,
+  source: 'credit_card',
+  label: L(`${bank}信用卡（尾号 ${last4}）`, `${BANK_EN[bank]} credit card (ending ${last4})`),
+})
+const gift = (id: string, balance: number): PaymentMethod => ({ id, source: 'gift_card', label: L('优品礼品卡', 'Youpin gift card'), balance })
+const alipay = (id: string): PaymentMethod => ({ id, source: 'alipay', label: L('支付宝', 'Alipay') })
 
 const USERS: Omit<User, 'orders'>[] = [
-  { user_id: 'zhang_wei_1001', name: '张伟', email: 'zhangwei@example.com', address: { address: '上海市黄浦区南京东路100号', zip: '200001' }, payment_methods: [cc('credit_card_1001', '招商银行', '4421'), gift('gift_card_1001', 300)] },
-  { user_id: 'li_na_1002', name: '李娜', email: 'lina88@example.com', address: { address: '北京市朝阳区建国路88号', zip: '100020' }, payment_methods: [alipay('alipay_1002'), gift('gift_card_1002', 50)] },
-  { user_id: 'wang_fang_1003', name: '王芳', email: 'wangfang@example.com', address: { address: '浙江省杭州市西湖区文三路20号', zip: '310000' }, payment_methods: [cc('credit_card_1003', '工商银行', '8890'), gift('gift_card_1003', 500)] },
-  { user_id: 'liu_yang_1004', name: '刘洋', email: 'liuyang@example.com', address: { address: '广东省深圳市南山区科技园路1号', zip: '518000' }, payment_methods: [alipay('alipay_1004'), cc('credit_card_1004', '建设银行', '3307')] },
-  { user_id: 'chen_jing_1005', name: '陈静', email: 'chenjing@example.com', address: { address: '四川省成都市武侯区天府大道66号', zip: '610000' }, payment_methods: [gift('gift_card_1005', 1000), cc('credit_card_1005', '中国银行', '5512')] },
-  { user_id: 'zhao_lei_1006', name: '赵磊', email: 'zhaolei@example.com', address: { address: '湖北省武汉市洪山区珞喻路8号', zip: '430000' }, payment_methods: [cc('credit_card_1006', '交通银行', '6620'), cc('credit_card_1006b', '浦发银行', '9031')] },
-  { user_id: 'sun_li_1007', name: '孙丽', email: 'sunli2024@example.com', address: { address: '江苏省南京市玄武区北京东路5号', zip: '210000' }, payment_methods: [alipay('alipay_1007'), gift('gift_card_1007', 20)] },
-  { user_id: 'zhou_jie_1008', name: '周杰', email: 'zhoujie@example.com', address: { address: '上海市静安区南京西路200号', zip: '200001' }, payment_methods: [cc('credit_card_1008', '平安银行', '7745')] },
+  { user_id: 'zhang_wei_1001', name: L('张伟', 'Zhang Wei'), email: 'zhangwei@example.com', address: { address: L('上海市黄浦区南京东路100号', '100 East Nanjing Road, Huangpu District, Shanghai'), zip: '200001' }, payment_methods: [cc('credit_card_1001', '招商银行', '4421'), gift('gift_card_1001', 300)] },
+  { user_id: 'li_na_1002', name: L('李娜', 'Li Na'), email: 'lina88@example.com', address: { address: L('北京市朝阳区建国路88号', '88 Jianguo Road, Chaoyang District, Beijing'), zip: '100020' }, payment_methods: [alipay('alipay_1002'), gift('gift_card_1002', 50)] },
+  { user_id: 'wang_fang_1003', name: L('王芳', 'Wang Fang'), email: 'wangfang@example.com', address: { address: L('浙江省杭州市西湖区文三路20号', '20 Wensan Road, Xihu District, Hangzhou, Zhejiang'), zip: '310000' }, payment_methods: [cc('credit_card_1003', '工商银行', '8890'), gift('gift_card_1003', 500)] },
+  { user_id: 'liu_yang_1004', name: L('刘洋', 'Liu Yang'), email: 'liuyang@example.com', address: { address: L('广东省深圳市南山区科技园路1号', '1 Science Park Road, Nanshan District, Shenzhen, Guangdong'), zip: '518000' }, payment_methods: [alipay('alipay_1004'), cc('credit_card_1004', '建设银行', '3307')] },
+  { user_id: 'chen_jing_1005', name: L('陈静', 'Chen Jing'), email: 'chenjing@example.com', address: { address: L('四川省成都市武侯区天府大道66号', '66 Tianfu Avenue, Wuhou District, Chengdu, Sichuan'), zip: '610000' }, payment_methods: [gift('gift_card_1005', 1000), cc('credit_card_1005', '中国银行', '5512')] },
+  { user_id: 'zhao_lei_1006', name: L('赵磊', 'Zhao Lei'), email: 'zhaolei@example.com', address: { address: L('湖北省武汉市洪山区珞喻路8号', '8 Luoyu Road, Hongshan District, Wuhan, Hubei'), zip: '430000' }, payment_methods: [cc('credit_card_1006', '交通银行', '6620'), cc('credit_card_1006b', '浦发银行', '9031')] },
+  { user_id: 'sun_li_1007', name: L('孙丽', 'Sun Li'), email: 'sunli2024@example.com', address: { address: L('江苏省南京市玄武区北京东路5号', '5 East Beijing Road, Xuanwu District, Nanjing, Jiangsu'), zip: '210000' }, payment_methods: [alipay('alipay_1007'), gift('gift_card_1007', 20)] },
+  { user_id: 'zhou_jie_1008', name: L('周杰', 'Zhou Jie'), email: 'zhoujie@example.com', address: { address: L('上海市静安区南京西路200号', '200 West Nanjing Road, Jing\'an District, Shanghai'), zip: '200001' }, payment_methods: [cc('credit_card_1008', '平安银行', '7745')] },
 ]
 
 // —————————— 订单 ——————————
@@ -183,7 +249,7 @@ function order(order_id: string, user_id: string, status: OrderStatus, items: st
 const ORDERS: Order[] = [
   order('#W1001', 'zhang_wei_1001', 'pending', ['2201'], 'credit_card_1001'),
   order('#W1002', 'zhang_wei_1001', 'delivered', ['2101', '2403'], 'credit_card_1001', { tracking: 'SF8800112233' }),
-  order('#W1003', 'zhang_wei_1001', 'cancelled', ['2701'], 'credit_card_1001', { cancel_reason: '不再需要' }),
+  order('#W1003', 'zhang_wei_1001', 'cancelled', ['2701'], 'credit_card_1001', { cancel_reason: L('不再需要', 'no longer needed') }),
   order('#W1004', 'li_na_1002', 'pending', ['2401', '2801'], 'alipay_1002'),
   order('#W1005', 'wang_fang_1003', 'pending', ['2103', '2601'], 'credit_card_1003'),
   order('#W1006', 'chen_jing_1005', 'delivered', ['2203', '2701'], 'credit_card_1005', { tracking: 'YT5500667788' }),

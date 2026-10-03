@@ -11,6 +11,7 @@
  * - issue 猜错原因时：模型如果没法调查（一次性 prompt、或者找不到真正的文件），会相信 issue，去改它点名的文件（无效修改）。
  * - 没有任何工具时（一次性 prompt），它把修改后的完整文件用 `FILE: 路径` + 代码块的格式写在回复里。
  */
+import { L } from '../../engine/locale'
 import { callTool, say } from '../../engine/llm/mock-kit'
 import type { MockContext, MockModel } from '../../engine/llm/providers/mock'
 import type { ChatRequest, ContentBlock, JSONSchema, ToolSpec, ToolUseBlock } from '../../engine/llm/types'
@@ -138,9 +139,11 @@ function history(req: ChatRequest): Use[] {
   return uses
 }
 
-const FAILED = /✗|✘|\bFAIL|[1-9]\d*\s*(个)?(测试)?失败|[1-9]\d* failed/i
+const FAILED_RE = /✗|✘|\bFAIL|[1-9]\d*\s*(个)?(测试)?失败|[1-9]\d* failed/i
+/** A test report shows failures ("0 failed" in an English summary is not a failure) */
+const FAILED = { test: (s: string) => FAILED_RE.test(s.replace(/\b0\s+(failed|failures?|failing)\b/gi, '')) }
 const FORBID_TEST_EDITS =
-  /(不要|不得|不能|禁止|不允许|别)[^。\n]{0,8}(修改|改动|编辑|删除|改)[^。\n]{0,6}测试|测试[^。\n]{0,10}(只读|不要改|不能改|不得修改)|(do not|don't|never|must not)\s+(modify|edit|change|touch|delete)\s+(the\s+|any\s+)?(existing\s+)?tests?/i
+  /(不要|不得|不能|禁止|不允许|别)[^。\n]{0,8}(修改|改动|编辑|删除|改)[^。\n]{0,6}测试|测试[^。\n]{0,10}(只读|不要改|不能改|不得修改)|(do not|don't|never|must not|mustn't|cannot|can't|not allowed to|shouldn't|should not)\s+(modify|edit|change|touch|delete|alter|rewrite|update|remove)\s+(the\s+|any\s+|any of the\s+)?(existing\s+)?(\*\.test\.ts|tests?)|tests?( files?)?\s+(\([^)]*\)\s+)?(are|is)\s+(read-only|off-limits|off limits)/i
 
 interface State {
   labels: Record<string, string>
@@ -153,11 +156,13 @@ interface Step {
   patch: Patch
 }
 
+const REST_UNCHANGED = L('// ……（文件其余部分保持不变）', '// ... (rest of the file unchanged)')
+
 const norm2 = (p: unknown) => (typeof p === 'string' ? p.trim().replace(/^\.?\//, '') : '')
 
 export const mock: MockModel = (req, ctx) => {
   const def = CODING_TASKS.find((d) => d.id === ctx.scenario.split('#')[0])
-  if (!def?.mock) return say('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）')
+  if (!def?.mock) return say(L('（模拟模型只会做核心任务；完整任务集请用真实模型跑基准）', '(The mock model only handles core tasks; run the full set as a benchmark with a real model)'))
   return new Session(def, req, ctx).next()
 }
 
@@ -227,7 +232,7 @@ class Session {
       const explore = this.explore(pending)
       if (explore) return explore
       const step = pending[0]
-      if (this.labelled(step.label).length >= 2) return say(`修改 ${step.patch.path} 时编辑工具连续报错，我先停下来，需要人工看一下。`)
+      if (this.labelled(step.label).length >= 2) return say(L(`修改 ${step.patch.path} 时编辑工具连续报错，我先停下来，需要人工看一下。`, `The edit tool kept failing on ${step.patch.path}. Stopping here; this needs a human to look at it.`))
       const edit = this.edit(step, steps)
       if (edit) return edit
       // 找不到真正的病灶：死板的模型会相信 issue 的猜测，去改 issue 点名的那个文件
@@ -243,21 +248,21 @@ class Session {
     // 改完了：有测试工具就跑一遍
     const lastEdit = Math.max(-1, ...this.uses.map((u, i) => (this.st.labels[u.use.id] ? i : -1)))
     const lastTest = Math.max(-1, ...this.uses.map((u, i) => (u.use.name === this.box.test?.name ? i : -1)))
-    if (this.box.test && lastTest < lastEdit) return this.call(this.box.test, this.testInput(this.box.test), '修改完成，跑一下测试确认没有回归。')
+    if (this.box.test && lastTest < lastEdit) return this.call(this.box.test, this.testInput(this.box.test), L('修改完成，跑一下测试确认没有回归。', 'Edit done. Running the tests to check for regressions.'))
 
     const results = this.testResults()
     const last = lastTest >= 0 ? results[results.length - 1] : undefined
-    const files = [...new Set(steps.map((s) => s.patch.path))].join('、')
-    if (last && FAILED.test(last)) return say(`我修改了 ${files}，但测试仍然有失败，需要进一步排查。`)
+    const files = [...new Set(steps.map((s) => s.patch.path))].join(L('、', ', '))
+    if (last && FAILED.test(last)) return say(L(`我修改了 ${files}，但测试仍然有失败，需要进一步排查。`, `I changed ${files}, but some tests still fail; this needs more investigation.`))
     const trap = this.spec.trap
     const summary = this.st.decoy
       ? this.spec.decoy!.summary
       : trap && this.applied('cheat')
-        ? `${trap.naiveSummary}，并把过时的测试期望同步更新了`
+        ? L(`${trap.naiveSummary}，并把过时的测试期望同步更新了`, `${trap.naiveSummary}, and updated the outdated test expectation to match`)
         : trap && !this.applied('correct')
           ? trap.naiveSummary
           : this.spec.summary
-    return say(`已修复：${summary}。${last ? '测试全部通过。' : '（没有运行测试）'}`)
+    return say(L(`已修复：${summary}。${last ? '测试全部通过。' : '（没有运行测试）'}`, `Fixed: ${summary}. ${last ? 'All tests pass.' : '(Tests were not run.)'}`))
   }
 
   /** 找代码：先看 issue 点名的文件，再读已知路径，然后搜索、列目录 */
@@ -271,8 +276,8 @@ class Session {
     for (const p of paths) if (reader && this.pathKnown(p) && !this.readDone(p) && !this.fullySeen(p)) return this.readCall(reader, p)
     const missing = paths.some((p) => !this.pathKnown(p)) || pending.some((s) => !this.seen(s.patch.find))
     if (missing && search && this.usesOf(search).length === 0)
-      return this.call(search, { [keyMatching(search, /pattern|query|regex|keyword|term|text|q$/i) ?? firstKey(search)]: this.spec.search }, `先搜索一下 ${this.spec.search} 在哪里。`)
-    if (missing && list && this.usesOf(list).length === 0) return this.call(list, {}, '先看看仓库里有哪些文件。')
+      return this.call(search, { [keyMatching(search, /pattern|query|regex|keyword|term|text|q$/i) ?? firstKey(search)]: this.spec.search }, L(`先搜索一下 ${this.spec.search} 在哪里。`, `Searching for ${this.spec.search} first.`))
+    if (missing && list && this.usesOf(list).length === 0) return this.call(list, {}, L('先看看仓库里有哪些文件。', 'Listing the repo files first.'))
     return null
   }
 
@@ -284,14 +289,14 @@ class Session {
       if (!this.seen(find)) return null
       const input: Record<string, unknown> = { [pathKey(r)]: path, [oldKey(r) ?? 'old_str']: find, [newKey(r) ?? 'new_str']: replace }
       if (r === this.box.editor) input.command = 'str_replace'
-      return this.labelledCall(step.label, r, input, `修改 ${path}。`)
+      return this.labelledCall(step.label, r, input, L(`修改 ${path}。`, `Editing ${path}.`))
     }
     const w = this.box.write
     if (w) {
       const content = this.fullySeen(path) ? this.believed(path, steps, step) : null
       // 没看到完整文件：只能写出它看到的片段，“其余代码”用占位符代替——一个残缺的文件
-      const body = content ?? `// ……（文件其余部分保持不变）\n${replace}\n`
-      return this.labelledCall(step.label, w, { [pathKey(w)]: path, [contentKey(w) ?? 'content']: body }, `重写 ${path}。`)
+      const body = content ?? `${REST_UNCHANGED}\n${replace}\n`
+      return this.labelledCall(step.label, w, { [pathKey(w)]: path, [contentKey(w) ?? 'content']: body }, L(`重写 ${path}。`, `Rewriting ${path}.`))
     }
     return null
   }
@@ -312,10 +317,20 @@ class Session {
   }
 
   private giveUp(p: Patch) {
-    const where = this.pathKnown(p.path) ? p.path : '需要修改的源码'
+    const where = this.pathKnown(p.path) ? p.path : L('需要修改的源码', 'the source that needs changing')
     if (!this.box.replace && !this.box.write && !this.box.editor)
-      return say(`我认为问题出在 ${where}：应该把\n${p.find}\n改成\n${p.replace}\n但我没有可以修改文件的工具。`)
-    return say(`我没能找到${where === p.path ? ` ${where} 里` : ''}需要修改的代码，无法安全地修改。（需要能搜索代码 / 列出文件、读取完整文件的工具）`)
+      return say(
+        L(
+          `我认为问题出在 ${where}：应该把\n${p.find}\n改成\n${p.replace}\n但我没有可以修改文件的工具。`,
+          `I think the problem is in ${where}: change\n${p.find}\nto\n${p.replace}\nbut I have no tool that can edit files.`,
+        ),
+      )
+    return say(
+      L(
+        `我没能找到${where === p.path ? ` ${where} 里` : ''}需要修改的代码，无法安全地修改。（需要能搜索代码 / 列出文件、读取完整文件的工具）`,
+        `I couldn't find the code that needs changing${where === p.path ? ` in ${where}` : ''}, so I can't change it safely. (I need tools to search the code / list files and read whole files.)`,
+      ),
+    )
   }
 
   /** 没有工具：把修改后的完整文件写在回复里 */
@@ -331,11 +346,11 @@ class Session {
           } catch {
             full = false
           }
-      const body = full ? files[p] : `// ……（文件其余部分保持不变）\n${steps.find((s) => s.patch.path === p)!.patch.replace}\n`
+      const body = full ? files[p] : `${REST_UNCHANGED}\n${steps.find((s) => s.patch.path === p)!.patch.replace}\n`
       return `FILE: ${p}\n\`\`\`ts\n${body}\`\`\``
     })
     const summary = this.spec.decoy?.summary ?? this.spec.trap?.naiveSummary ?? this.spec.summary
-    return say(`${summary}。\n\n${blocks.join('\n\n')}`)
+    return say(`${summary}${L('。', '.')}\n\n${blocks.join('\n\n')}`)
   }
 
   // —— 发起工具调用 ——
@@ -345,7 +360,7 @@ class Session {
   private readCall(t: ToolSpec, path: string) {
     const input: Record<string, unknown> = { [pathKey(t)]: path }
     if (t === this.box.editor) input.command = 'view'
-    return this.call(t, input, `看一下 ${path}。`)
+    return this.call(t, input, L(`看一下 ${path}。`, `Reading ${path}.`))
   }
   private labelledCall(label: string, t: ToolSpec, input: Record<string, unknown>, preamble: string) {
     const reply = this.call(t, input, preamble)

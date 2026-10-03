@@ -1,0 +1,14 @@
+import { expect, test } from 'testkit'
+import { addDays } from '../src/add'
+
+test('Mar 1 minus 1 day is the last day of February', () => {
+  expect(addDays({ year: 2024, month: 3, day: 1 }, -1)).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test("New Year's Day minus 1 day is Dec 31 of the previous year", () => {
+  expect(addDays({ year: 2024, month: 1, day: 1 }, -1)).toEqual({ year: 2023, month: 12, day: 31 })
+})
+
+test('subtract a whole month of days', () => {
+  expect(addDays({ year: 2024, month: 3, day: 15 }, -15)).toEqual({ year: 2024, month: 2, day: 29 })
+})

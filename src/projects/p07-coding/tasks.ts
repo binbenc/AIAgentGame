@@ -5,10 +5,14 @@
  * - PASS_TO_PASS：仓库原有的测试不能被改坏；
  * - 测试文件不允许修改。
  */
+import { L } from '../../engine/locale'
 import type { CheckResult, ProjectTask } from '../types'
 import { applyPatch, BASE_REPOS, runSuite, testFilesOf, type CodingEnv, type Files, type Patch, type RepoName, type SuiteResult } from './env'
 
-const HIDDEN = import.meta.glob('./hidden/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const HIDDEN = L(
+  import.meta.glob('./hidden/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>,
+  import.meta.glob('./hidden.en/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>,
+)
 
 /** 判定时隐藏测试放在这个路径（会覆盖 Agent 写的同名文件） */
 export const HIDDEN_PATH = 'test/issue.hidden.test.ts'
@@ -44,7 +48,7 @@ export interface CodingTaskDef {
 
 const t = (x: CodingTaskDef) => x
 
-export const CODING_TASKS: CodingTaskDef[] = [
+const ZH_TASKS: CodingTaskDef[] = [
   // ———————————————— 核心任务（模拟模型可解，参与评星） ————————————————
   t({
     id: 'cart-min-spend',
@@ -441,6 +445,310 @@ HTML 里没有 h7。按 CommonMark，超过 6 个 # 就不是标题，应该当�
   }),
 ]
 
+/** English version of each task: text, plus seeds / mock patches whose code contains comments or messages (they must match repos.en/) */
+type EnTask = Pick<CodingTaskDef, 'title' | 'kind' | 'issue'> & Partial<Pick<CodingTaskDef, 'seed' | 'mock'>>
+
+const EN_TASKS: Record<string, EnTask> = {
+  // ———————————————— core ————————————————
+  'cart-min-spend': {
+    title: 'Off by one cent at the minimum spend',
+    kind: 'Boundary condition (off-by-one)',
+    issue: `### "¥20 off ¥100" coupon doesn't apply at exactly ¥100
+
+**Steps to reproduce**
+1. Put 2 tote bags at ¥50 each in the cart (subtotal 10000 cents)
+2. Use the coupon \`F20\`: \`{ code: 'F20', kind: 'fixed', value: 2000, minSpend: 10000 }\`
+3. Call \`checkout(items, [F20])\`
+
+**Expected**: total = 8000, coupons = ['F20']
+**Actual**: total = 10000, the coupon is ignored
+
+The promo says "¥20 off orders of ¥100 or more" — exactly ¥100 obviously counts. Support has already had several complaints.`,
+    mock: { search: 'minSpend', summary: 'changed the minimum-spend check from `<=` to `<`, so the coupon applies when the subtotal equals the minimum' },
+  },
+  'cart-tax-rounding': {
+    title: 'Tax is one cent short',
+    kind: 'Rounding bug (the issue guesses the wrong cause)',
+    issue: `### Total with tax is 1 cent short (floating-point precision?)
+
+Item at ¥19.99 (1999 cents), 13% tax:
+
+\`\`\`ts
+checkout([{ sku: 'MUG', name: 'Mug', unitPrice: 1999, quantity: 1 }], [], 0.13)
+\`\`\`
+
+**Expected**: tax = 260 (1999 × 0.13 = 259.87, which rounds to 260), total = 2259
+**Actual**: tax = 259, total = 2258
+
+My guess is floating-point error from all the additions in \`src/checkout.ts\`? Finance's reconciliation is off by a few cents every day.`,
+    mock: {
+      mentions: 'src/checkout.ts',
+      decoy: {
+        patch: {
+          path: 'src/checkout.ts',
+          find: '  const tax = taxFor(afterCoupons, taxRate)',
+          replace: '  // Fix floating-point error: round to cents before computing tax\n  const tax = taxFor(Math.round(afterCoupons), taxRate)',
+        },
+        summary: 'following the issue, rounded the amount to cents in checkout.ts before computing tax to avoid floating-point error',
+      },
+      search: 'taxFor',
+      summary: "the bug isn't in checkout.ts: tax.ts used `Math.floor`, which always rounds down; changed it to `Math.round` to round to the nearest cent",
+    },
+  },
+  'md-escape-order': {
+    title: 'Escaped twice',
+    kind: 'Escaping order',
+    issue: `### \`<\` in a heading renders as \`&amp;lt;\`
+
+Input:
+
+\`\`\`md
+# a < b
+\`\`\`
+
+**Expected**: \`<h1>a &lt; b</h1>\`
+**Actual**: \`<h1>a &amp;lt; b</h1>\`, so the page literally shows \`&lt;\`.
+
+Same with \`>\`. Looks like it's escaped twice — does the heading renderer call escapeHtml a second time?`,
+    mock: { search: 'escapeHtml', summary: 'escapeHtml replaced `<`/`>` first, so replacing `&` afterwards turned the new `&lt;` into `&amp;lt;`; it now replaces `&` first' },
+  },
+  'md-underscore': {
+    title: 'Underscores gone wrong (regression trap)',
+    kind: "Regression trap: following the issue's suggestion breaks an existing test",
+    issue: `### \`snake_case\` names render as italics
+
+Our API docs are full of variable names:
+
+\`\`\`md
+Call get_user_by_id() to fetch the user
+\`\`\`
+
+renders as \`Call get<em>user</em>by_id() to fetch the user\` — the name turns into italics.
+
+Suggestion: just drop \`_italic_\` support, everyone uses \`*italic*\` anyway.`,
+    mock: {
+      search: 'renderInline',
+      trap: {
+        naive: '  // _italic_ breaks snake_case names; removed as suggested in the issue',
+        naiveSummary: 'removed `_italic_` support as the issue suggested, so snake_case is no longer rendered as italics',
+        brokenTest: 'underscore italic',
+        cheat: {
+          path: 'test/inline.test.ts',
+          find: `  expect(renderInline('_italic_')).toBe('<em>italic</em>')`,
+          replace: `  expect(renderInline('_italic_')).toBe('_italic_')`,
+        },
+      },
+      summary:
+        '`_italic_` now only applies when neither side is a word character (`(^|[^\\w])_..._(?!\\w)`), so underscores inside words are no longer emphasis and the existing `_italic_` syntax still works',
+    },
+  },
+  'date-leap-year': {
+    title: 'Is 2000 not a leap year?',
+    kind: "The bug isn't in the file the issue names",
+    issue: `### addMonths gets February 2000 wrong
+
+\`\`\`ts
+addMonths({ year: 2000, month: 1, day: 31 }, 1)
+\`\`\`
+
+**Expected**: \`{ year: 2000, month: 2, day: 29 }\` (2000 is a leap year)
+**Actual**: \`{ year: 2000, month: 2, day: 28 }\`
+
+2024 works, only 2000 is wrong. I looked at the end-of-month clamping in \`addMonths\` in \`src/add.ts\` — is the \`Math.min(d.day, ...)\` the problem?`,
+    mock: {
+      mentions: 'src/add.ts',
+      decoy: {
+        patch: {
+          path: 'src/add.ts',
+          find: '  const day = Math.min(d.day, daysInMonth(year, month))',
+          replace: '  // Clamp to end of month: the result must be a valid day of the target month\n  const day = Math.max(1, Math.min(d.day, daysInMonth(year, month)))',
+        },
+        summary: "following the issue, hardened addMonths' end-of-month clamping",
+      },
+      search: 'daysInMonth',
+      summary: 'addMonths was fine; the root cause was isLeapYear in date.ts missing the "divisible by 400 is a leap year" rule',
+    },
+  },
+  'date-end-of-month': {
+    title: 'Add endOfMonth',
+    kind: 'Small feature (touches two files)',
+    issue: `### Feature request: add endOfMonth()
+
+Billing cycles keep needing "the last day of this month", and right now we build it by hand from \`daysInMonth\`. Please add:
+
+\`\`\`ts
+import { endOfMonth } from 'datekit' // the package entry is src/index.ts
+endOfMonth({ year: 2024, month: 2, day: 10 }) // → { year: 2024, month: 2, day: 29 }
+\`\`\`
+
+Putting it in the same file as \`addMonths\` is fine.`,
+    seed: [
+      {
+        path: 'src/add.ts',
+        find: `/** Last day of the month */
+export function endOfMonth(d: SimpleDate): SimpleDate {
+  return { year: d.year, month: d.month, day: daysInMonth(d.year, d.month) }
+}
+
+/** Add n days (n may be negative) */`,
+        replace: '/** Add n days (n may be negative) */',
+      },
+      { path: 'src/index.ts', find: "export { addDays, addMonths, endOfMonth } from './add'", replace: "export { addDays, addMonths } from './add'" },
+    ],
+    mock: { mentions: 'src/index.ts', search: 'addMonths', summary: 'added endOfMonth to src/add.ts and exported it from src/index.ts' },
+  },
+
+  // ———————————————— full set ————————————————
+  'date-add-days-back': {
+    title: 'March 0th',
+    kind: 'Boundary condition (off-by-one)',
+    issue: `### addDays going back one day gives "March 0"
+
+\`\`\`ts
+addDays({ year: 2024, month: 3, day: 1 }, -1)
+\`\`\`
+
+**Expected**: \`{ year: 2024, month: 2, day: 29 }\`
+**Actual**: \`{ year: 2024, month: 3, day: 0 }\`
+
+Going back 5 days and so on works; it only breaks when you land exactly on the last day of the previous month.`,
+  },
+  'date-format-pad': {
+    title: 'September not padded',
+    kind: 'Boundary condition (off-by-one)',
+    issue: `### formatDate doesn't zero-pad September
+
+\`formatDate({ year: 2024, month: 9, day: 9 })\` returns \`2024-9-9\`; expected \`2024-09-09\`.
+
+January to August are fine, October onwards is fine, only September (and the 9th) is wrong. Weird.`,
+  },
+  'date-add-months-negative': {
+    title: 'Subtracting months across a year',
+    kind: 'Rounding negative numbers',
+    issue: `### addMonths gets the year wrong for negative n
+
+\`\`\`ts
+addMonths({ year: 2024, month: 1, day: 15 }, -1)
+\`\`\`
+
+**Expected**: \`{ year: 2023, month: 12, day: 15 }\`
+**Actual**: \`{ year: 2024, month: 12, day: 15 }\` — it jumps to the end of the same year.
+
+The docs say n may be negative.`,
+  },
+  'date-parse-invalid': {
+    title: 'Dates that do not exist',
+    kind: 'Missing validation',
+    issue: `### parseDate accepts dates that don't exist
+
+\`parseDate('2023-02-30')\` doesn't throw; it returns \`{ year: 2023, month: 2, day: 30 }\`. Same for \`2024-04-31\`.
+
+The README says it "throws on a bad format or a date that doesn't exist". Users can place orders with any made-up date in the form.`,
+    seed: [
+      {
+        path: 'src/date.ts',
+        find: '  if (d.day < 1 || d.day > daysInMonth(d.year, d.month)) throw new RangeError(`Invalid date: ${s}`)',
+        replace: '  if (d.day < 1 || d.day > 31) throw new RangeError(`Invalid date: ${s}`)',
+      },
+    ],
+  },
+  'cart-best-percent': {
+    title: 'Several percent coupons',
+    kind: 'Business rule',
+    issue: `### I have a 10% and a 20% coupon but only got 10% off
+
+\`applyCoupons(10000, [P10, P20])\` (P10 = 10% off, P20 = 20% off) returns 9000; expected 8000.
+
+The README says "the biggest discount is picked automatically". Putting P20 first works, so it seems to depend on the order.`,
+  },
+  'cart-negative-total': {
+    title: 'Negative total',
+    kind: 'Missing boundary handling',
+    issue: `### Total goes negative when a gift card exceeds the order
+
+A ¥50 pen paid with a ¥100 gift card (\`{ code: 'GIFT100', kind: 'fixed', value: 10000 }\`): \`checkout\` returns total = -5000, and the tax is negative too.
+
+Expected: total = 0, tax = 0, discount = 5000.`,
+  },
+  'cart-quantity': {
+    title: 'Quantity validation',
+    kind: 'Feature: input validation',
+    issue: `### subtotal should reject invalid quantities
+
+Right now \`quantity: 0\`, \`quantity: -2\` and \`quantity: 1.5\` all produce a subtotal (and negatives even lower the total).
+
+Please match the unit price validation: throw a \`RangeError\` when the quantity isn't a positive integer, with a message containing "Invalid quantity".`,
+    seed: [
+      {
+        path: 'src/cart.ts',
+        find:
+          '    if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new RangeError(`Invalid quantity for ${item.sku}: ${item.quantity}`)\n' +
+          '    if (!Number.isInteger(item.unitPrice)',
+        replace: '    if (!Number.isInteger(item.unitPrice)',
+      },
+    ],
+  },
+  'md-heading-7': {
+    title: 'Level-7 heading',
+    kind: 'Boundary condition (off-by-one)',
+    issue: `### \`#######\` renders as \`<h7>\`
+
+There is no h7 in HTML. Per CommonMark, more than 6 #s is not a heading and should be a plain paragraph:
+
+\`renderMarkdown('####### seven')\` should give \`<p>####### seven</p>\`.`,
+  },
+  'md-list-close': {
+    title: 'Unclosed list',
+    kind: 'Missing boundary handling',
+    issue: `### Missing \`</ul>\` when a document ends with a list
+
+\`renderMarkdown('- a\\n- b')\` outputs \`<ul>\\n<li>a</li>\\n<li>b</li>\`, with no \`</ul>\`, so all the HTML we append afterwards ends up inside the list. A list followed by a blank line or a paragraph is fine.`,
+  },
+  'md-code-span': {
+    title: 'Asterisks in code',
+    kind: 'Processing order',
+    issue: `### \`*\` inside inline code is treated as italics
+
+\`\`\`md
+\`a*b*c\`
+\`\`\`
+
+Expected \`<code>a*b*c</code>\`, got \`<code>a<em>b</em>c</code>\`. \`_x_\` inside code has the same problem. Code spans should be output verbatim (still HTML-escaped, of course).`,
+    seed: [
+      {
+        path: 'src/inline.ts',
+        find: String.raw`  // Pull inline code out into placeholders first so * and _ inside code aren't treated as emphasis
+  const codes: string[] = []
+  let out = text.replace(/` + '`([^`]+)`' + String.raw`/g, (_m, code: string) => {
+    codes.push(code)
+    return ` + '`\\u0000${codes.length - 1}\\u0000`' + String.raw`
+  })
+
+  out = escapeHtml(out)`,
+        replace: '  let out = escapeHtml(text)',
+      },
+      {
+        path: 'src/inline.ts',
+        find: String.raw`  // Put the code back (code content is escaped too)
+  return out.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => ` + '`<code>${escapeHtml(codes[Number(i)])}</code>`)',
+        replace: "  return out.replace(/`([^`]+)`/g, '<code>$1</code>')",
+      },
+    ],
+  },
+  'md-strikethrough': {
+    title: 'Strikethrough support',
+    kind: 'Feature request',
+    issue: `### Feature request: support \`~~strikethrough~~\`
+
+For price change announcements we want to write \`was ~~100~~ now 80\`. Please render \`~~text~~\` as \`<del>text</del>\`, inline like bold and italics.`,
+  },
+}
+
+export const CODING_TASKS: CodingTaskDef[] = L(
+  ZH_TASKS,
+  ZH_TASKS.map((d) => ({ ...d, ...EN_TASKS[d.id] })),
+)
+
 /** 标准修复 = 植入补丁的逆补丁（按顺序） */
 export function fixOf(def: CodingTaskDef): Patch[] {
   return def.seed.map((p) => ({ path: p.path, find: p.replace, replace: p.find }))
@@ -459,16 +767,16 @@ export function initialFiles(def: CodingTaskDef): Files {
 
 export function hiddenTestOf(def: CodingTaskDef): string {
   const key = Object.keys(HIDDEN).find((k) => k.endsWith(`/${def.id}.test.ts.txt`))
-  if (!key) throw new Error(`缺少隐藏测试：hidden/${def.id}.test.ts.txt`)
+  if (!key) throw new Error(L(`缺少隐藏测试：hidden/${def.id}.test.ts.txt`, `Missing hidden test: hidden.en/${def.id}.test.ts.txt`))
   return HIDDEN[key]
 }
 
-const oneLine = (s = '') => s.replace(/\s*\n\s*/g, '；').slice(0, 160)
+const oneLine = (s = '') => s.replace(/\s*\n\s*/g, L('；', '; ')).slice(0, 160)
 
 function describeFailures(r: SuiteResult, label: (file: string) => string): string[] {
   return [
-    ...r.loadErrors.map((l) => `${label(l.file)}无法加载：${oneLine(l.error)}`),
-    ...r.cases.filter((c) => !c.ok).map((c) => `${label(c.file)}「${c.name}」失败：${oneLine(c.error)}`),
+    ...r.loadErrors.map((l) => L(`${label(l.file)}无法加载：${oneLine(l.error)}`, `${label(l.file)}failed to load: ${oneLine(l.error)}`)),
+    ...r.cases.filter((c) => !c.ok).map((c) => L(`${label(c.file)}「${c.name}」失败：${oneLine(c.error)}`, `${label(c.file)}"${c.name}" failed: ${oneLine(c.error)}`)),
   ]
 }
 
@@ -480,7 +788,10 @@ export async function judge(def: CodingTaskDef, files: Files): Promise<CheckResu
   if (tampered.length)
     return {
       pass: false,
-      reason: `不能修改测试来让测试通过：${tampered.join('、')} 被${tampered.some((p) => !(p in files)) ? '删除或' : ''}修改了。应该修源码；在 system prompt 里明确“不要修改测试”，最好在编辑工具里直接拒绝写 *.test.ts`,
+      reason: L(
+        `不能修改测试来让测试通过：${tampered.join('、')} 被${tampered.some((p) => !(p in files)) ? '删除或' : ''}修改了。应该修源码；在 system prompt 里明确“不要修改测试”，最好在编辑工具里直接拒绝写 *.test.ts`,
+        `Don't edit tests to make them pass: ${tampered.join(', ')} ${tampered.length > 1 ? 'were' : 'was'} ${tampered.some((p) => !(p in files)) ? 'deleted or ' : ''}modified. Fix the source instead; say "never modify tests" in the system prompt, and ideally have the edit tool refuse to write *.test.ts`,
+      ),
     }
 
   // 判定用的仓库：Agent 的最终源码 + 原始测试 + 隐藏测试，在全新的模块系统里运行
@@ -489,20 +800,36 @@ export async function judge(def: CodingTaskDef, files: Files): Promise<CheckResu
   const f2p = await runSuite(judged, [HIDDEN_PATH])
   const p2p = await runSuite(judged, tests)
 
-  const fixFails = describeFailures(f2p, () => '隐藏测试')
-  const regressions = describeFailures(p2p, (f) => `原有测试 ${f} `)
-  if (!f2p.cases.length && !f2p.loadErrors.length) fixFails.push('隐藏测试没有运行')
+  const fixFails = describeFailures(f2p, () => L('隐藏测试', 'Hidden test '))
+  const regressions = describeFailures(p2p, (f) => L(`原有测试 ${f} `, `Existing test ${f} `))
+  if (!f2p.cases.length && !f2p.loadErrors.length) fixFails.push(L('隐藏测试没有运行', 'hidden tests did not run'))
   const problems: string[] = []
-  if (fixFails.length) problems.push(`issue 没有修好（FAIL_TO_PASS）：${fixFails.slice(0, 2).join('；')}${fixFails.length > 2 ? ` 等 ${fixFails.length} 项` : ''}`)
+  if (fixFails.length)
+    problems.push(
+      L(
+        `issue 没有修好（FAIL_TO_PASS）：${fixFails.slice(0, 2).join('；')}${fixFails.length > 2 ? ` 等 ${fixFails.length} 项` : ''}`,
+        `Issue not fixed (FAIL_TO_PASS): ${fixFails.slice(0, 2).join('; ')}${fixFails.length > 2 ? ` (${fixFails.length} in total)` : ''}`,
+      ),
+    )
   if (regressions.length)
     problems.push(
-      `修改引入了回归（PASS_TO_PASS）：${regressions.slice(0, 2).join('；')}${regressions.length > 2 ? ` 等 ${regressions.length} 项` : ''}。改完代码一定要跑一遍已有测试`,
+      L(
+        `修改引入了回归（PASS_TO_PASS）：${regressions.slice(0, 2).join('；')}${regressions.length > 2 ? ` 等 ${regressions.length} 项` : ''}。改完代码一定要跑一遍已有测试`,
+        `The change introduced regressions (PASS_TO_PASS): ${regressions.slice(0, 2).join('; ')}${regressions.length > 2 ? ` (${regressions.length} in total)` : ''}. Always run the existing tests after changing code`,
+      ),
     )
   if (problems.length) {
-    if ([...f2p.loadErrors, ...p2p.loadErrors].length) problems.push('（代码加载失败通常意味着写入了不完整或有语法错误的文件）')
+    if ([...f2p.loadErrors, ...p2p.loadErrors].length)
+      problems.push(L('（代码加载失败通常意味着写入了不完整或有语法错误的文件）', '(Load failures usually mean a file was written incomplete or with a syntax error)'))
     return { pass: false, reason: problems.join('\n') }
   }
-  return { pass: true, reason: `修复正确：隐藏测试 ${f2p.cases.length}/${f2p.cases.length} 通过，原有测试 ${p2p.cases.length}/${p2p.cases.length} 通过` }
+  return {
+    pass: true,
+    reason: L(
+      `修复正确：隐藏测试 ${f2p.cases.length}/${f2p.cases.length} 通过，原有测试 ${p2p.cases.length}/${p2p.cases.length} 通过`,
+      `Fixed: hidden tests ${f2p.cases.length}/${f2p.cases.length} passed, existing tests ${p2p.cases.length}/${p2p.cases.length} passed`,
+    ),
+  }
 }
 
 export function toTasks(): ProjectTask<CodingEnv, unknown>[] {

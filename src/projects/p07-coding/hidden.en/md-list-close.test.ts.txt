@@ -1,0 +1,10 @@
+import { expect, test } from 'testkit'
+import { renderMarkdown } from '../src/block'
+
+test('closes </ul> when the document ends with a list', () => {
+  expect(renderMarkdown('- a\n- b')).toBe('<ul>\n<li>a</li>\n<li>b</li>\n</ul>')
+})
+
+test('paragraph followed by a trailing list', () => {
+  expect(renderMarkdown('intro\n- x')).toBe('<p>intro</p>\n<ul>\n<li>x</li>\n</ul>')
+})

@@ -1,0 +1,13 @@
+import { expect, test } from 'testkit'
+import { applyCoupons } from '../src/coupons'
+
+const P10 = { code: 'P10', kind: 'percent' as const, value: 10 }
+const P20 = { code: 'P20', kind: 'percent' as const, value: 20 }
+
+test('picks the biggest of several percent coupons', () => {
+  expect(applyCoupons(10000, [P10, P20])).toEqual({ total: 8000, applied: ['P20'] })
+})
+
+test('order does not matter', () => {
+  expect(applyCoupons(10000, [P20, P10])).toEqual({ total: 8000, applied: ['P20'] })
+})

@@ -1,3 +1,4 @@
+import { L } from '../locale'
 /**
  * 统一的 LLM 消息格式（厂商中立）。
  * 刻意贴近 Anthropic Messages API 的形状：content 是“块”的数组，
@@ -107,7 +108,7 @@ export class LLMError extends Error {
 }
 
 export class AbortError extends Error {
-  constructor(message = '请求已取消') {
+  constructor(message = L('请求已取消', 'Request cancelled')) {
     super(message)
     this.name = 'AbortError'
   }

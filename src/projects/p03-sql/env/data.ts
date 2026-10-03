@@ -7,7 +7,10 @@
  * - 状态是数字码（orders.status）或英文（refunds.state），含义只写在数据字典里；
  * - customers.is_test 标记的内部测试账号会污染所有指标；
  * - orders_old 是迁移前的旧表快照：字段名更“友好”，但数据不完整、状态没同步、还有重复行。
+ *
+ * 英文版：数据完全相同（同一个种子、同样的行和数字），只是把文字值（昵称、城市、类目、商品名、活动名、旧表状态）翻译成英文。
  */
+import { L } from '../../../engine/locale'
 
 export const TODAY = '2026-03-15'
 
@@ -368,12 +371,82 @@ function toSql(data: SeedData): string {
   return out.join('\n')
 }
 
+// —————————————— 英文版：只翻译文字值，行和数字完全不变 ——————————————
+
+const SURNAMES_EN = 'Wang Li Zhang Liu Chen Yang Huang Zhao Wu Zhou Xu Sun Ma Zhu Hu Guo He Gao Luo Zheng Liang Xie Song Tang Xu Han Feng Deng Cao Peng Zeng Xiao Tian Dong Yuan Pan Jiang Cai Yu Du Ye Cheng Wei Su Lyu Ding Ren Shen Yao Lu Zhong Jiang Cui Tan Lu Fan Wang Liao Shi Jin Wei Jia Xia Fu Fang Zou Xiong Bai Meng Qin Qiu Hou Jiang Yin Xue Yan Duan Lei Long Li Shi Tao He Mao Hao Gu Gong Shao Wan Qin Wu Qian Dai Yan Mo Kong Xiang Chang Tang Kang Yi Qiao Lai Wen'.split(' ')
+const GIVEN_EN = ['Zihan', 'Xinyi', 'Zixuan', 'Yutong', 'Haoran', 'Shiqi', 'Yinuo', 'Siyuan', 'Xiaotong', 'Jiahao', 'Ruoxi', 'Junjie', 'Jiayi', 'Yuhang', 'Mengyao', 'Mingxuan', 'Kexin', 'Tianyou', 'Yuyan', 'Bowen', 'Jingyi', 'Zeyu', 'Anran', 'Chenyang']
+const CITIES_EN: Record<string, string> = { 上海: 'Shanghai', 杭州: 'Hangzhou', 北京: 'Beijing', 深圳: 'Shenzhen', 成都: 'Chengdu', 南京: 'Nanjing', 广州: 'Guangzhou', 武汉: 'Wuhan' }
+const CATEGORIES_EN = ['Coffee', 'Tea', 'Snacks', 'Brewing Gear', 'Coffee Beans', 'Drip Bags', 'Coffee Capsules', 'Green Tea', 'Oolong Tea', 'Herbal Tea', 'Nuts', 'Biscuits', 'Pour-Over Gear', 'Cups & Mugs']
+const PRODUCTS_EN = [
+  'Yunnan Arabica Beans 500g',
+  'Ethiopia Yirgacheffe 250g',
+  'Colombia Huila 250g',
+  'Espresso Blend 1kg',
+  'Drip Bags · Classic ×10',
+  'Drip Bags · Fruity ×10',
+  'Cold Brew Drip Bags ×8',
+  'Coffee Capsules · Espresso ×20',
+  'Coffee Capsules · Oat Latte ×10',
+  'Pre-Qingming Longjing 100g',
+  'Biluochun 100g',
+  'Anji White Tea 100g',
+  'Tieguanyin 150g',
+  'Da Hong Pao 150g',
+  'Peach Oolong Cold Brew ×12',
+  'Chamomile Herbal Tea',
+  'Rose Lychee Fruit Tea',
+  'Daily Nuts ×30',
+  'Macadamia Nuts 500g',
+  'Pecans 400g',
+  'Butter Cookie Gift Box',
+  'Whole Wheat Crackers',
+  'Pour-Over Kettle 600ml',
+  'V60 Dripper Set',
+  'Hand Coffee Grinder',
+  'Paper Filters ×100',
+  'Double-Wall Glass 350ml',
+  'Travel Tumbler 480ml',
+  'Ceramic Mug',
+  'Cold Drip Tower',
+]
+const CAMPAIGNS_EN = ['Summer Iced Coffee', 'Singles Day', 'Double 12 Encore', 'Lunar New Year Sale', "Women's Day"]
+const OLD_STATUS_EN: Record<string, string> = { 待支付: 'pending', 已支付: 'paid', 已发货: 'shipped', 已完成: 'completed', 已取消: 'cancelled' }
+
+const tr = (map: Record<string, string>, v: unknown) => {
+  const hit = map[String(v)]
+  if (hit === undefined) throw new Error(`missing English text for ${String(v)}`)
+  return hit
+}
+
+function nickEn(nick: string): string {
+  if (nick === '林小满') return 'Lin Xiaoman'
+  const test = /^测试账号(\d+)$/.exec(nick)
+  if (test) return `Test Account ${test[1]}`
+  return `${SURNAMES_EN[[...SURNAMES].indexOf(nick[0])]} ${GIVEN_EN[GIVEN.indexOf(nick.slice(1))]}`
+}
+
+function toEnglish(d: SeedData): SeedData {
+  const byIndex = (zh: Row[], en: string[], col: number) => Object.fromEntries(zh.map((r, i) => [String(r[col]), en[i]]))
+  const cats = byIndex(CATEGORIES, CATEGORIES_EN, 1)
+  const titles = Object.fromEntries(PRODUCTS.map(([t], i) => [t, PRODUCTS_EN[i]]))
+  const camps = byIndex(CAMPAIGNS, CAMPAIGNS_EN, 1)
+  return {
+    ...d,
+    customers: d.customers.map(([id, nick, city, ...rest]) => [id, nickEn(String(nick)), tr(CITIES_EN, city), ...rest]),
+    categories: d.categories.map(([id, name, parent]) => [id, tr(cats, name), parent]),
+    products: d.products.map(([sku, title, ...rest]) => [sku, tr(titles, title), ...rest]),
+    campaigns: d.campaigns.map(([id, name, ...rest]) => [id, tr(camps, name), ...rest]),
+    orders_old: d.orders_old.map((r) => [...r.slice(0, 4), tr(OLD_STATUS_EN, r[4])]),
+  }
+}
+
 let cache: { data: SeedData; sql: string } | undefined
 
 /** 生成（并缓存）种子数据 */
 export function seed(): { data: SeedData; sql: string } {
   if (!cache) {
-    const data = generate()
+    const zh = generate()
+    const data = L(zh, toEnglish(zh))
     cache = { data, sql: toSql(data) }
   }
   return cache

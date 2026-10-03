@@ -26,6 +26,7 @@ export type {
   Usage,
 } from '../llm/types'
 import { AbortError, LLMError, textOf } from '../llm/types'
+import { L } from '../locale'
 export { AbortError, LLMError, textOf }
 
 export interface Runtime {
@@ -41,7 +42,7 @@ export function __setRuntime(rt: Runtime | null): void {
 }
 
 function rt(): Runtime {
-  if (!current) throw new Error('agent-quest 运行时未初始化')
+  if (!current) throw new Error(L('agent-quest 运行时未初始化', 'The agent-quest runtime is not initialized'))
   return current
 }
 
@@ -65,7 +66,7 @@ export function createApi(get: () => Runtime) {
     let started = false
     const iterable: ChatStream = {
       [Symbol.asyncIterator]() {
-        if (started) throw new Error('一个 ChatStream 只能被迭代一次')
+        if (started) throw new Error(L('一个 ChatStream 只能被迭代一次', 'A ChatStream can only be iterated once'))
         started = true
         return {
           async next() {
@@ -82,7 +83,7 @@ export function createApi(get: () => Runtime) {
       },
       async finalResponse() {
         if (!started) for await (const _ of iterable) void _
-        if (!final) throw new Error('流未正常结束，没有完整响应')
+        if (!final) throw new Error(L('流未正常结束，没有完整响应', 'The stream ended abnormally without a complete response'))
         return final
       },
     }

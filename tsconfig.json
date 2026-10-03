@@ -16,5 +16,9 @@
     "paths": { "agent-quest": ["./src/engine/runtime/api.ts"] }
   },
   "include": ["src", "tests", "vite.config.ts"],
-  "exclude": ["src/content/levels/*/starter/**", "src/content/levels/*/solution/**", "src/projects/*/starter/**", "src/projects/*/solution/**", "src/export/template/**"]
+  "exclude": [
+    "src/content/levels/*/starter/**", "src/content/levels/*/solution/**", "src/content/levels/*/starter.en/**", "src/content/levels/*/solution.en/**",
+    "src/projects/*/starter/**", "src/projects/*/solution/**", "src/projects/*/starter.en/**", "src/projects/*/solution.en/**",
+    "src/export/template/**", "src/export/template.en/**"
+  ]
 }

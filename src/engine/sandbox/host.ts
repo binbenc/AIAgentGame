@@ -9,6 +9,7 @@ import { OpenAIProvider } from '../llm/providers/openai'
 import type { Provider } from '../llm/types'
 import type { TraceEvent } from '../trace'
 import type { HostMessage, SerializedError, WorkerMessage } from './protocol'
+import { L, LOCALE } from '../locale'
 
 export interface SandboxRun {
   promise: Promise<SuiteResult>
@@ -75,7 +76,7 @@ interface StartOptions {
 }
 
 function startWorker<R>(start: HostMessage, opts: StartOptions): { promise: Promise<R>; cancel(): void } {
-  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: `aq:${LOCALE}` })
   const aborts = new Map<number, AbortController>()
   let finish: (r: R) => void
   let fail: (e: Error) => void
@@ -92,13 +93,20 @@ function startWorker<R>(start: HostMessage, opts: StartOptions): { promise: Prom
   const timer = setTimeout(
     () => {
       stop()
-      fail(new Error(`运行超时（${Math.round((opts.timeoutMs ?? 20000) / 1000)} 秒）。是不是有死循环，或者某个 Promise 永远不会结束？`))
+      fail(
+        new Error(
+          L(
+            `运行超时（${Math.round((opts.timeoutMs ?? 20000) / 1000)} 秒）。是不是有死循环，或者某个 Promise 永远不会结束？`,
+            `Run timed out (${Math.round((opts.timeoutMs ?? 20000) / 1000)}s). Is there an infinite loop, or a Promise that never settles?`,
+          ),
+        ),
+      )
     },
     opts.timeoutMs ?? (opts.mode === 'mock' ? 20_000 : 600_000),
   )
 
   async function handleLLM(id: number, req: Parameters<Provider['chat']>[0], stream: boolean) {
-    if (!opts.provider) return send({ type: 'llm-error', id, error: { name: 'Error', message: '未配置真实模型，请先到设置页填写' } })
+    if (!opts.provider) return send({ type: 'llm-error', id, error: { name: 'Error', message: L('未配置真实模型，请先到设置页填写', 'No real model configured — set one up in Settings first') } })
     const ac = new AbortController()
     aborts.set(id, ac)
     const provider = createProvider(opts.provider, (wire) => send({ type: 'llm-wire', id, wire: redact(wire) }))
@@ -150,14 +158,14 @@ function startWorker<R>(start: HostMessage, opts: StartOptions): { promise: Prom
   }
   worker.onerror = (e) => {
     stop()
-    fail(new Error(`沙箱错误：${e.message}`))
+    fail(new Error(`${L('沙箱错误：', 'Sandbox error: ')}${e.message}`))
   }
   send(start)
   return {
     promise,
     cancel() {
       stop()
-      fail(new Error('已手动停止'))
+      fail(new Error(L('已手动停止', 'Stopped')))
     },
   }
 }

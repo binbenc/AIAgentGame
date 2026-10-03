@@ -1,0 +1,10 @@
+## Production notes
+
+- The **OWASP Top 10 for LLM Applications (2025)** ranks **LLM01 Prompt Injection** first; this level also covers **LLM02 Sensitive Information Disclosure** and **LLM06 Excessive Agency**. Run a threat model against that list before you launch.
+- **The model is not a security boundary.** Delimiters and "don't follow instructions in the data" prompts (Microsoft calls this *spotlighting*) cut the success rate a lot, but never to zero. Anywhere a mistake costs real money or data, deterministic code has to be the backstop.
+- **Least privilege**: pick tools per task instead of handing every agent every tool. An agent that reads untrusted content should ideally hold **no** risky tools; if it must, make "has read untrusted content" a tracked state and use it to tighten permissions (the same idea behind research designs like CaMeL and the Dual LLM pattern).
+- **Policy gates + human in the loop**: for refunds, transfers, sending email and deleting data, check limits, recipient allowlists and call rates in code; anything out of bounds goes to human approval (Level 12). Report refused calls to the model as `is_error` results so it can degrade gracefully.
+- **Output filtering (DLP)**: redact the final output, the logs, and anything sent to third parties. Regexes are just the first layer; in production, add a dedicated PII detection service (e.g. Microsoft Presidio or a cloud provider's DLP API).
+- **Sandboxing**: when an agent can run code or reach the network, put it in an isolated environment (containers, gVisor, Firecracker) and restrict outbound domains to stop data exfiltration. Markdown image links are a common exfiltration channel too — filter external URLs before rendering.
+- **Audit logs**: record every risky tool call, allowed or blocked: who, when, with what arguments, under which policy. After an incident, that's the only thing you can reconstruct from.
+- Security can't bring normal business to a halt. **Over-blocking** is an incident too: use your eval set (Level 16) to measure both "how many attacks were stopped" and "how many legitimate requests were blocked".

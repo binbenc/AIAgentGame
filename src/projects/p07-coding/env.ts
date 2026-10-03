@@ -9,6 +9,7 @@
  * - 防护：每个测试单独 try/catch，输出有长度上限。同步死循环没法从内部打断——
  *   写出死循环的修改会让这次运行卡住直到超时，这也是生产环境要把不可信代码放进沙箱（容器 + 超时）的原因。
  */
+import { L, LOCALE } from '../../engine/locale'
 import { createModuleSystem } from '../../engine/sandbox/loader'
 import type { EnvCtx } from '../types'
 
@@ -16,14 +17,21 @@ export type RepoName = 'datekit' | 'cartcalc' | 'mdlite'
 export type Files = Record<string, string>
 
 const RAW = import.meta.glob('./repos/**/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+// English versions of the repo files (comments, README, test names, error messages); files missing here fall back to repos/
+const RAW_EN = import.meta.glob('./repos.en/**/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+
+function loadRepos(raw: Record<string, string>, dir: string, into: Record<RepoName, Files>) {
+  for (const [key, text] of Object.entries(raw)) {
+    const rest = key.slice(key.indexOf(dir) + dir.length).replace(/\.txt$/, '')
+    const repo = rest.slice(0, rest.indexOf('/')) as RepoName
+    into[repo][rest.slice(rest.indexOf('/') + 1)] = text
+  }
+  return into
+}
 
 /** 未植入 bug 的基线仓库 */
-export const BASE_REPOS: Record<RepoName, Files> = { datekit: {}, cartcalc: {}, mdlite: {} }
-for (const [key, text] of Object.entries(RAW)) {
-  const rest = key.slice(key.indexOf('/repos/') + '/repos/'.length).replace(/\.txt$/, '')
-  const repo = rest.slice(0, rest.indexOf('/')) as RepoName
-  BASE_REPOS[repo][rest.slice(rest.indexOf('/') + 1)] = text
-}
+export const BASE_REPOS: Record<RepoName, Files> = loadRepos(RAW, '/repos/', { datekit: {}, cartcalc: {}, mdlite: {} })
+if (LOCALE === 'en') loadRepos(RAW_EN, '/repos.en/', BASE_REPOS)
 
 export interface Patch {
   path: string
@@ -34,9 +42,9 @@ export interface Patch {
 /** 精确替换一处（find 必须恰好出现一次） */
 export function applyPatch(files: Files, p: Patch): Files {
   const src = files[p.path]
-  if (src === undefined) throw new Error(`补丁的目标文件不存在：${p.path}`)
+  if (src === undefined) throw new Error(L(`补丁的目标文件不存在：${p.path}`, `Patch target does not exist: ${p.path}`))
   const at = src.indexOf(p.find)
-  if (at < 0 || src.indexOf(p.find, at + 1) >= 0) throw new Error(`补丁在 ${p.path} 中没有唯一匹配：${p.find.slice(0, 60)}`)
+  if (at < 0 || src.indexOf(p.find, at + 1) >= 0) throw new Error(L(`补丁在 ${p.path} 中没有唯一匹配：${p.find.slice(0, 60)}`, `Patch has no unique match in ${p.path}: ${p.find.slice(0, 60)}`))
   return { ...files, [p.path]: src.slice(0, at) + p.replace + src.slice(at + p.find.length) }
 }
 
@@ -78,7 +86,12 @@ function expect(actual: unknown) {
     const not = negate ? '.not' : ''
     const assert = (ok: boolean, matcher: string, expected: unknown, received: unknown = actual) => {
       if (ok === negate)
-        throw new AssertionError(`expect(received)${not}.${matcher}\n期望：${negate ? '不是 ' : ''}${show(expected)}\n实际：${show(received)}`)
+        throw new AssertionError(
+          L(
+            `expect(received)${not}.${matcher}\n期望：${negate ? '不是 ' : ''}${show(expected)}\n实际：${show(received)}`,
+            `expect(received)${not}.${matcher}\nExpected: ${negate ? 'not ' : ''}${show(expected)}\nReceived: ${show(received)}`,
+          ),
+        )
     }
     return {
       toBe: (expected: unknown) => assert(Object.is(actual, expected), 'toBe(expected)', expected),
@@ -94,7 +107,7 @@ function expect(actual: unknown) {
       toBeCloseTo: (expected: number, digits = 2) =>
         assert(Math.abs((actual as number) - expected) < 10 ** -digits / 2, `toBeCloseTo(expected, ${digits})`, expected),
       toThrow: (expected?: string | RegExp) => {
-        if (typeof actual !== 'function') throw new AssertionError('toThrow() 需要传入一个函数：expect(() => fn()).toThrow()')
+        if (typeof actual !== 'function') throw new AssertionError(L('toThrow() 需要传入一个函数：expect(() => fn()).toThrow()', 'toThrow() needs a function: expect(() => fn()).toThrow()'))
         let thrown: unknown
         let threw = false
         try {
@@ -105,8 +118,9 @@ function expect(actual: unknown) {
         }
         const msg = thrown instanceof Error ? thrown.message : String(thrown)
         const matches = threw && (expected === undefined || (typeof expected === 'string' ? msg.includes(expected) : expected.test(msg)))
-        const want = expected === undefined ? '抛出异常' : `抛出包含 ${show(String(expected))} 的异常`
-        assert(matches, `toThrow(${expected === undefined ? '' : 'expected'})`, want, threw ? `抛出了 ${show(msg)}` : '没有抛出异常')
+        const want =
+          expected === undefined ? L('抛出异常', 'to throw') : L(`抛出包含 ${show(String(expected))} 的异常`, `to throw an error containing ${show(String(expected))}`)
+        assert(matches, `toThrow(${expected === undefined ? '' : 'expected'})`, want, threw ? L(`抛出了 ${show(msg)}`, `threw ${show(msg)}`) : L('没有抛出异常', 'did not throw'))
       },
     }
   }
@@ -182,7 +196,7 @@ export const MAX_REPORT_CHARS = 4000
 /** 给 Agent 看的测试报告：失败详情 + 每个文件的通过数 + 汇总 */
 export function formatReport(r: SuiteResult, filter?: string): string {
   const lines: string[] = []
-  for (const l of r.loadErrors) lines.push(`✗ [加载失败] ${l.file}\n    ${l.error.replace(/\n/g, '\n    ')}`)
+  for (const l of r.loadErrors) lines.push(`✗ ${L('[加载失败]', '[load error]')} ${l.file}\n    ${l.error.replace(/\n/g, '\n    ')}`)
   for (const c of r.cases.filter((c) => !c.ok)) lines.push(`✗ ${c.file} › ${c.name}\n    ${(c.error ?? '').replace(/\n/g, '\n    ')}`)
   const perFile = new Map<string, { ok: number; all: number }>()
   for (const c of r.cases) {
@@ -191,15 +205,18 @@ export function formatReport(r: SuiteResult, filter?: string): string {
     if (c.ok) s.ok++
     perFile.set(c.file, s)
   }
-  if (perFile.size) lines.push(`各文件通过数：${[...perFile].map(([f, s]) => `${f} ${s.ok}/${s.all}`).join('，')}`)
+  if (perFile.size) lines.push(L(`各文件通过数：${[...perFile].map(([f, s]) => `${f} ${s.ok}/${s.all}`).join('，')}`, `Passed per file: ${[...perFile].map(([f, s]) => `${f} ${s.ok}/${s.all}`).join(', ')}`))
   const failed = r.cases.filter((c) => !c.ok).length
-  if (!r.cases.length && !r.loadErrors.length) lines.push(filter ? `没有匹配 "${filter}" 的测试` : '没有找到测试')
+  if (!r.cases.length && !r.loadErrors.length) lines.push(filter ? L(`没有匹配 "${filter}" 的测试`, `No tests match "${filter}"`) : L('没有找到测试', 'No tests found'))
   else
     lines.push(
-      `汇总：共 ${r.cases.length} 个测试，${r.cases.length - failed} 通过，${failed} 失败${r.loadErrors.length ? `，${r.loadErrors.length} 个文件加载失败` : ''}`,
+      L(
+        `汇总：共 ${r.cases.length} 个测试，${r.cases.length - failed} 通过，${failed} 失败${r.loadErrors.length ? `，${r.loadErrors.length} 个文件加载失败` : ''}`,
+        `Summary: ${r.cases.length} tests, ${r.cases.length - failed} passed, ${failed} failed${r.loadErrors.length ? `, ${r.loadErrors.length} files failed to load` : ''}`,
+      ),
     )
   const text = lines.join('\n')
-  return text.length > MAX_REPORT_CHARS ? `${text.slice(0, MAX_REPORT_CHARS)}\n……（输出过长，已截断）` : text
+  return text.length > MAX_REPORT_CHARS ? `${text.slice(0, MAX_REPORT_CHARS)}\n${L('……（输出过长，已截断）', '... (output truncated)')}` : text
 }
 
 // ———————————————————— 给玩家的仓库 API ————————————————————
@@ -227,9 +244,9 @@ export interface CodingEnv {
 }
 
 function cleanPath(path: unknown): string {
-  if (typeof path !== 'string' || !path.trim()) throw new Error(`路径必须是非空字符串，收到：${JSON.stringify(path)}`)
+  if (typeof path !== 'string' || !path.trim()) throw new Error(L(`路径必须是非空字符串，收到：${JSON.stringify(path)}`, `path must be a non-empty string, got: ${JSON.stringify(path)}`))
   const p = path.trim().replace(/^\.?\//, '')
-  if (p.split('/').includes('..')) throw new Error(`路径不能包含 ".."：${path}`)
+  if (p.split('/').includes('..')) throw new Error(L(`路径不能包含 ".."：${path}`, `path cannot contain "..": ${path}`))
   return p
 }
 
@@ -245,17 +262,17 @@ export function createRepoEnv(issue: string, initial: Files, ctx: EnvCtx): Codin
     readFile: ctx.traced('readFile', async (path: string) => {
       await ctx.delay(5)
       const p = cleanPath(path)
-      if (!(p in env.files)) throw new Error(`文件不存在：${p}`)
+      if (!(p in env.files)) throw new Error(L(`文件不存在：${p}`, `File not found: ${p}`))
       return env.files[p]
     }),
     writeFile: ctx.traced('writeFile', async (path: string, content: string) => {
       await ctx.delay(5)
-      if (typeof content !== 'string') throw new Error(`content 必须是字符串，收到：${typeof content}`)
+      if (typeof content !== 'string') throw new Error(L(`content 必须是字符串，收到：${typeof content}`, `content must be a string, got: ${typeof content}`))
       env.files[cleanPath(path)] = content
     }),
     search: ctx.traced('search', async (pattern: string) => {
       await ctx.delay(10)
-      if (typeof pattern !== 'string' || !pattern) throw new Error('pattern 必须是非空字符串')
+      if (typeof pattern !== 'string' || !pattern) throw new Error(L('pattern 必须是非空字符串', 'pattern must be a non-empty string'))
       let re: RegExp
       try {
         re = new RegExp(pattern)
@@ -267,8 +284,10 @@ export function createRepoEnv(issue: string, initial: Files, ctx: EnvCtx): Codin
         env.files[path].split('\n').forEach((line, i) => {
           if (re.test(line)) out.push(`${path}:${i + 1}: ${line.trim()}`)
         })
-      if (!out.length) return `没有匹配 "${pattern}" 的内容`
-      return out.length > MAX_MATCHES ? `${out.slice(0, MAX_MATCHES).join('\n')}\n……（共 ${out.length} 处，只显示前 ${MAX_MATCHES} 处）` : out.join('\n')
+      if (!out.length) return L(`没有匹配 "${pattern}" 的内容`, `No matches for "${pattern}"`)
+      return out.length > MAX_MATCHES
+        ? `${out.slice(0, MAX_MATCHES).join('\n')}\n${L(`……（共 ${out.length} 处，只显示前 ${MAX_MATCHES} 处）`, `... (${out.length} matches, showing the first ${MAX_MATCHES})`)}`
+        : out.join('\n')
     }),
     runTests: ctx.traced('runTests', async (filter?: string) => {
       await ctx.delay(300)

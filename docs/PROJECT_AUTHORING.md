@@ -1,6 +1,7 @@
 # 实战项目编写指南
 
 > 先读 `docs/LEVEL_AUTHORING.md`（引擎 API、mock 写法、中文文案规范），再完整读一遍 `src/projects/p01-helpdesk/`，它是项目的范例。
+> 所有内容都是中英双语的：新增或修改项目前，先读 [I18N.md](I18N.md)。
 
 ## 项目和关卡的区别
 

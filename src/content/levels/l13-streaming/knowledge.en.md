@@ -1,0 +1,9 @@
+## Production notes
+
+- **Time to first token (TTFT) is the key metric for perceived speed.** An answer that takes 6 seconds in total but shows the first token at 0.5 seconds "feels faster" than one that takes 3 seconds but makes you wait the whole time. Track TTFT and total latency separately.
+- To push from the server to the browser, the usual choice is **SSE** (Server-Sent Events): one-way, plain HTTP, auto-reconnects, and it's what the model APIs themselves use. Only reach for WebSocket when you need two-way communication. Make sure reverse proxies in between (like Nginx) have response buffering turned off, or your stream turns into "save up a big chunk, then send it".
+- **Cancellation must reach the bottom layer**: the frontend disconnects → the server aborts its request to the model. If you only stop rendering in the frontend, the model keeps generating in the background and you still pay for the tokens. Both the Anthropic and OpenAI SDKs accept a `signal`.
+- Handle cancelled answers deliberately: does the partial answer go into the conversation history? The usual approach is to keep it and mark it as "interrupted", so the model knows next turn that its last answer was cut off.
+- **A first-token timeout catches problems earlier than a total timeout**: when a model service is overloaded, the typical symptom is a long wait for the first token. After a first-token timeout you can retry, switch to a fallback model, or degrade the reply.
+- Streamed tool-call arguments arrive as **JSON fragments** (`tool_input_delta`). Wait until the whole block ends before parsing; never call `JSON.parse` on half a JSON string. SDKs usually provide helpers like `finalMessage()` / `finalResponse()`.
+- For long tasks, besides streaming text, push **structured progress events** ("Checking shipping…", "Step 2/4") so the frontend can show status instead of a lone spinner.

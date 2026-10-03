@@ -61,13 +61,26 @@ interface ProgressStore extends SaveData {
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined
+let pending: SaveData | undefined
+function write(data: SaveData) {
+  return idbSet(KEY, data).catch(() => {
+    /* IndexedDB 不可用时只在内存中保存 */
+  })
+}
 function persist(data: SaveData) {
   clearTimeout(timer)
+  pending = data
   timer = setTimeout(() => {
-    idbSet(KEY, data).catch(() => {
-      /* IndexedDB 不可用时只在内存中保存 */
-    })
+    pending = undefined
+    void write(data)
   }, 300)
+}
+
+/** 立刻写入还在等待中的存档（切换语言重新加载页面之前调用） */
+export async function flushSave() {
+  clearTimeout(timer)
+  if (pending) await write(pending)
+  pending = undefined
 }
 
 export const useProgress = create<ProgressStore>((set, get) => {

@@ -1,4 +1,5 @@
 import type { LevelSuite } from '../engine/judge/types'
+import { L } from '../engine/locale'
 
 export interface LevelFile {
   /** 工作区内路径，例如 "agent.ts" */
@@ -39,4 +40,12 @@ export function rawFiles(glob: Record<string, unknown>, prefix: string): Record<
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(glob)) out[k.slice(k.indexOf(prefix) + prefix.length)] = v as string
   return out
+}
+
+/**
+ * Bilingual code files: `starter/` + `solution/` are Chinese, `starter.en/` + `solution.en/` hold the English version of
+ * every file that contains Chinese (comments, strings). In English, files missing from the .en dir fall back to the Chinese one.
+ */
+export function localizedFiles(zh: Record<string, string>, en: Record<string, string>): Record<string, string> {
+  return L(zh, { ...zh, ...en })
 }

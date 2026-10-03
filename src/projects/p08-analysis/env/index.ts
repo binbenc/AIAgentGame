@@ -2,6 +2,7 @@
  * P8 的环境：三份 CSV + 一组原始 API（列出数据集、预览、在沙箱里运行代码）。
  * 每次 runCode 都在全新的模块系统里运行；环境记录每一次运行的代码和输出，判定器据此检查“答案是不是代码算出来的”。
  */
+import { L } from '../../../engine/locale'
 import type { EnvCtx } from '../../types'
 import { DATASET_INFO, datasets } from './data'
 import { runInSandbox } from './sandbox'
@@ -39,7 +40,10 @@ export function createAnalysisEnv(ctx: EnvCtx): AnalysisTaskEnv {
   const env: AnalysisTaskEnv = { runs: [], api: undefined as unknown as AnalysisEnv }
   const check = (name: unknown) => {
     const n = String(name ?? '').trim()
-    if (!(n in data)) throw new Error(`数据集不存在：${n || '（空）'}。可用的数据集：${Object.keys(data).join(', ')}`)
+    if (!(n in data))
+      throw new Error(
+        L(`数据集不存在：${n || '（空）'}。可用的数据集：${Object.keys(data).join(', ')}`, `No such dataset: ${n || '(empty)'}. Available datasets: ${Object.keys(data).join(', ')}`),
+      )
     return n
   }
   env.api = {
@@ -54,7 +58,7 @@ export function createAnalysisEnv(ctx: EnvCtx): AnalysisTaskEnv {
     }),
     runCode: ctx.traced('runCode', async (code: string) => {
       await ctx.delay(300)
-      if (typeof code !== 'string' || !code.trim()) return '错误：code 必须是非空字符串'
+      if (typeof code !== 'string' || !code.trim()) return L('错误：code 必须是非空字符串', 'Error: code must be a non-empty string')
       const output = runInSandbox(code, data)
       env.runs.push({ code, output })
       return output

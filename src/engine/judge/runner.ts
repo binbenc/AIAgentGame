@@ -8,6 +8,7 @@ import * as api from '../runtime/api'
 import { createModuleSystem } from '../sandbox/loader'
 import { Trace, type TraceEvent } from '../trace'
 import { JudgeFailure, type LevelSuite, type RunMode, type ScenarioCtx, type ScenarioResult, type SuiteResult } from './types'
+import { L } from '../locale'
 
 export interface RunOptions {
   suite: LevelSuite
@@ -35,7 +36,7 @@ export async function runSuite(opts: RunOptions): Promise<SuiteResult> {
   for (const sc of suite.scenarios) {
     if (opts.only && !opts.only.includes(sc.id)) continue
     if (mode === 'real' && sc.mockOnly) {
-      const r: ScenarioResult = { id: sc.id, title: sc.title, status: 'skipped', message: '依赖模拟故障注入，真实模式下跳过', events: [], calls: 0, tokens: 0, elapsedMs: 0 }
+      const r: ScenarioResult = { id: sc.id, title: sc.title, status: 'skipped', message: L('依赖模拟故障注入，真实模式下跳过', 'Relies on injected mock failures; skipped in real mode'), events: [], calls: 0, tokens: 0, elapsedMs: 0 }
       results.push(r)
       opts.onScenarioEnd?.(r)
       continue
@@ -67,12 +68,12 @@ export async function runSuite(opts: RunOptions): Promise<SuiteResult> {
       },
       eq(actual, expected, msg) {
         if (JSON.stringify(actual) !== JSON.stringify(expected))
-          throw new JudgeFailure(`${msg}\n  期望：${show(expected)}\n  实际：${show(actual)}`)
+          throw new JudgeFailure(`${msg}\n  ${L('期望：', 'Expected: ')}${show(expected)}\n  ${L('实际：', 'Actual:   ')}${show(actual)}`)
       },
       includes(text, needle, msg) {
         const s = typeof text === 'string' ? text : JSON.stringify(text ?? '')
         const ok = typeof needle === 'string' ? s.includes(needle) : needle.test(s)
-        if (!ok) throw new JudgeFailure(`${msg}\n  期望包含：${String(needle)}\n  实际：${show(s)}`)
+        if (!ok) throw new JudgeFailure(`${msg}\n  ${L('期望包含：', 'Expected to include: ')}${String(needle)}\n  ${L('实际：', 'Actual: ')}${show(s)}`)
       },
       fail(msg) {
         throw new JudgeFailure(msg)

@@ -1,0 +1,25 @@
+{
+  "name": "my-nova-agent",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "The AI agent I built by hand in Agent Quest",
+  "scripts": {
+    "test": "vitest run",
+    "test:real": "AQ_MODE=real vitest run",
+    "agent": "tsx bin/agent.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "sucrase": "^3.35.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  },
+  "engines": { "node": ">=20" }
+}

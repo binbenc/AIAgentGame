@@ -1,0 +1,15 @@
+import { expect, test } from 'testkit'
+import { endOfMonth } from '../src/index'
+
+test('endOfMonth is exported from the package entry', () => {
+  expect(typeof endOfMonth).toBe('function')
+})
+
+test('endOfMonth: February in a leap year', () => {
+  expect(endOfMonth({ year: 2024, month: 2, day: 10 })).toEqual({ year: 2024, month: 2, day: 29 })
+})
+
+test('endOfMonth: 30-day month and year end', () => {
+  expect(endOfMonth({ year: 2023, month: 4, day: 1 })).toEqual({ year: 2023, month: 4, day: 30 })
+  expect(endOfMonth({ year: 2023, month: 12, day: 31 })).toEqual({ year: 2023, month: 12, day: 31 })
+})
