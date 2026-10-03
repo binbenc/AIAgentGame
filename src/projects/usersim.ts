@@ -12,6 +12,10 @@ export interface SimUserSpec {
   opening: string
   /** 真实模式下给 LLM 的人设说明：身份、目标、已知信息、何时结束 */
   instruction: string
+  /** 角色称呼（显示在 trace 里），默认“客户” */
+  role?: string
+  /** 真实模式下的情境描述，默认“一位正在联系客服的客户” */
+  persona?: string
   /** 模拟模式下的脚本：根据客服刚说的话决定怎么回；返回 STOP 表示结束对话 */
   script(agentMessage: string, turn: number, memory: Record<string, unknown>): string
 }
@@ -27,7 +31,7 @@ export interface SimUser {
   readonly transcript: { role: 'agent' | 'user'; text: string }[]
 }
 
-const USER_SYSTEM = (instruction: string) => `你在扮演一位正在联系客服的客户。下面是你的人设和目标：
+const USER_SYSTEM = (instruction: string, persona: string) => `你在扮演${persona}。下面是你的人设和目标：
 
 ${instruction}
 
@@ -41,14 +45,15 @@ export function createSimUser(spec: SimUserSpec, ctx: EnvCtx, maxTurns = 30): Si
   const memory: Record<string, unknown> = {}
   let done = false
   let turn = 0
-  ctx.log(`👤 客户：${spec.opening}`)
+  const role = spec.role ?? '客户'
+  ctx.log(`👤 ${role}：${spec.opening}`)
 
   async function reply(agentMessage: string): Promise<string> {
     if (ctx.mode === 'mock' || !ctx.envChat) return spec.script(agentMessage, turn, memory)
     // 真实模式：角色互换——客服说的话对“用户模型”来说是 user 消息
     const messages: Message[] = transcript.map((m) => ({ role: m.role === 'agent' ? 'user' : 'assistant', content: m.text }))
     if (messages[0]?.role === 'assistant') messages.unshift({ role: 'user', content: '（客服已接入，请开始描述你的问题）' })
-    const res = await ctx.envChat({ system: USER_SYSTEM(spec.instruction), messages, max_tokens: 1024, model: 'fast' })
+    const res = await ctx.envChat({ system: USER_SYSTEM(spec.instruction, spec.persona ?? '一位正在联系客服的客户'), messages, max_tokens: 1024, model: 'fast' })
     return res.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim() || STOP
   }
 
@@ -66,7 +71,7 @@ export function createSimUser(spec: SimUserSpec, ctx: EnvCtx, maxTurns = 30): Si
       turn++
       const text = turn > maxTurns ? STOP : await reply(agentMessage)
       transcript.push({ role: 'user', text })
-      ctx.log(`👤 客户：${text}`)
+      ctx.log(`👤 ${role}：${text}`)
       if (text.includes(STOP)) done = true
       return text
     },

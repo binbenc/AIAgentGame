@@ -89,7 +89,7 @@ async function runTask(opts: ProjectRunOptions, taskId: string, trial: number): 
   let status: TaskRunResult['status'] = 'passed'
   let reason = ''
   try {
-    const env = project.createEnv(task, ctx)
+    const env = await project.createEnv(task, ctx)
     const mod = modules.require(project.entry)
     const output = await project.invoke(mod, task, env)
     const verdict = await task.check({ env, output, trace, mode })

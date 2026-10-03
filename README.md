@@ -14,10 +14,18 @@
 | # | 难度 | 项目 | 原型 | 判定 |
 |---|---|---|---|---|
 | P1 | 入门 | 帮助中心问答 | Chat with Docs / RAG | 关键事实 + 引用正确 + 不用过时文档 + 该拒答时拒答 |
+| P2 | 入门 | 邮件分拣助手 | LangChain 邮件 Agent | 标签正确；草稿包含必需信息、不泄露内部信息、不落入钓鱼 |
+| P3 | 进阶 | Text-to-SQL 数据助手 | Spider / BIRD | SQL 执行结果与标准答案一致；数据库不能被修改 |
+| P4 | 进阶 | 会议日程助手 | AppWorld | 日历最终状态满足时区、工作时间、会议室等约束；该问时先问 |
 | P5 | 进阶 | 零售客服 | τ-bench (retail) | 数据库最终状态 + 政策合规（先验身份、逐项确认） |
-| P7 | 高级 | 编码 Agent | SWE-bench / mini-swe-agent | 隐藏测试（FAIL_TO_PASS）+ 原有测试不回归 + 不许改测试 |
+| P6 | 高级 | 旅行规划 | TravelPlanner | 硬约束检查器（预算、营业时间、闭馆日、偏好、可行性） |
+| P7 | 高级 | 编码 Agent | SWE-bench / mini-swe-agent | 隐藏测试 + 原有测试不回归 + 不许改测试 |
+| P8 | 高级 | 数据分析 Agent | Code Interpreter / DABench | 数值答案（容差）+ 代码确实执行过且可复现 |
+| P9 | 专家 | 深度研究 | Anthropic 多 Agent 研究系统 / GAIA | 多跳答案 + 证据来源确实被读取 + 不被注入 |
+| P10 | 专家 | 网页操作 Agent | WebArena | 网站最终状态（订单、购物车、地址）+ 没有多余操作 |
+| P11 | 专家 | 运维 on-call Agent | ITBench / AIOpsLab | 根因正确 + 系统恢复 + 修复经审批 + 最小变更 + 事后报告 |
 
-规划中：邮件分拣、Text-to-SQL、会议日程、旅行规划、数据分析、深度研究、网页操作、运维 on-call。编写方法见 [docs/PROJECT_AUTHORING.md](docs/PROJECT_AUTHORING.md)。
+编写方法见 [docs/PROJECT_AUTHORING.md](docs/PROJECT_AUTHORING.md)。
 
 ## 开发
 

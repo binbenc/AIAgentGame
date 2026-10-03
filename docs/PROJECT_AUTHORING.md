@@ -40,9 +40,17 @@ src/projects/pNN-slug/
 
 - `types.ts`：`ProjectDef`、`ProjectTask`、`EnvCtx`、`CheckResult`。
 - `createEnv(task, ctx)`：每个任务（每次试验）都创建一份全新的环境。**所有副作用都必须通过 `ctx`**：`ctx.traced(name, fn)` 记录工具调用，`ctx.delay(ms)` 模拟延迟，`ctx.log(msg)` 写日志。不要用 `__traced` / `__delay`，因为基准模式会并发运行多个任务。
+- `createEnv` 可以返回 Promise（例如需要初始化数据库）。
+- `src/projects/shared/`：项目共享的工具。`sqlite.ts` 提供浏览器 / Node 通用的 SQLite（sql.js）：`await openDatabase(sql)`、`rowsOf(db, sql, params)`。需要别的共享工具时放在这里，文件名不要冲突。
 - `invoke(mod, task, env)`：调用玩家入口模块，返回值交给 `task.check({ env, output, trace, mode })`。
 - `usersim.ts`：`createSimUser(spec, ctx)` 创建模拟用户（τ-bench 的做法）。`spec.opening` 是开场白；`spec.script(agentMessage, turn, memory)` 是模拟模式下的脚本；`spec.instruction` 是真实模式下给 LLM 的人设。回复里包含 `STOP`（`###STOP###`）表示用户结束对话。模拟用户的模型调用不计入玩家成本。
 - `runner.ts`：`runProject({ project, files, mode, taskIds?, trials?, concurrency? })`。mock 的 `ctx.scenario` 就是任务 id；基准的第 2 次及以后的试验是 `taskId#2` 这样的形式，所以 mock 要用 `ctx.scenario.split('#')[0]`。
+
+## 范例
+
+- `p01-helpdesk`：纯文本判定（事实 + 引用 + 拒答）
+- `p05-retail`：模拟用户多轮对话 + 数据库状态判定 + 政策合规检查（action log）
+- `p07-coding`：虚拟仓库 + 沙箱里运行测试 + 隐藏测试判定；mock 根据玩家工具的 schema 适配调用方式
 
 ## 质量要求
 

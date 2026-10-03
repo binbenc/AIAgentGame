@@ -7,7 +7,7 @@ import { engineFiles, nodeRuntime } from '../export/buildZip'
 import type { SaveData } from '../state/progress'
 import type { ProjectDef } from './types'
 
-const sources = import.meta.glob(['./*.ts', './p*/**/*', '!./registry.ts', '!./exportProject.ts', '!./p*/starter/**', '!./p*/solution/**'], {
+const sources = import.meta.glob(['./*.ts', './shared/**/*', './p*/**/*', '!./registry.ts', '!./exportProject.ts', '!./p*/starter/**', '!./p*/solution/**'], {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -25,7 +25,7 @@ export function projectFileList(project: ProjectDef, save: Pick<SaveData, 'files
   out['aq/content/types.ts'] = Object.values(contentTypes)[0]
   for (const [k, v] of Object.entries(sources)) {
     const rel = k.slice(2)
-    if (!rel.includes('/') || rel.startsWith(`${dir}/`)) out[`aq/projects/${rel}`] = v
+    if (!rel.includes('/') || rel.startsWith('shared/') || rel.startsWith(`${dir}/`)) out[`aq/projects/${rel}`] = v
   }
   // 玩家的代码：关卡代码库（项目会 import 它）+ 本项目目录；其它项目的文件不导出
   for (const [p, c] of Object.entries(save.files)) if (!p.startsWith('projects/') || p.startsWith(`projects/${slug}/`)) out[`src/${p}`] = c
@@ -38,8 +38,8 @@ export function projectFileList(project: ProjectDef, save: Pick<SaveData, 'files
       type: 'module',
       description: `${project.title}（原型：${project.prototype.name}）`,
       scripts: { test: 'vitest run tests', bench: 'AQ_BENCH=1 vitest run bench', typecheck: 'tsc --noEmit' },
-      dependencies: { '@anthropic-ai/sdk': '^0.131.0', sucrase: '^3.35.1', zod: '^4.6.5' },
-      devDependencies: { '@types/node': '^24.19.1', typescript: '^5.9.3', vitest: '^5.0.3' },
+      dependencies: { '@anthropic-ai/sdk': '^0.131.0', 'sql.js': '^1.14.2', sucrase: '^3.35.1', zod: '^4.6.5' },
+      devDependencies: { '@types/node': '^24.19.1', '@types/sql.js': '^1.4.11', typescript: '^5.9.3', vitest: '^5.0.3' },
       engines: { node: '>=20' },
     },
     null,

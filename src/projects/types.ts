@@ -65,7 +65,8 @@ export interface ProjectDef<Env = any, Out = any> {
   contract: string
   starter: Record<string, string>
   solution: Record<string, string>
-  createEnv(task: ProjectTask<Env, Out>, ctx: EnvCtx): Env
+  /** 可以是异步的（例如需要初始化 SQLite） */
+  createEnv(task: ProjectTask<Env, Out>, ctx: EnvCtx): Env | Promise<Env>
   /** 如何调用玩家的入口模块 */
   invoke(mod: any, task: ProjectTask<Env, Out>, env: Env): Promise<Out>
   tasks: ProjectTask<Env, Out>[]
