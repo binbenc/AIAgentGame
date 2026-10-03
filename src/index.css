@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: #0b1020;
+  color: #e2e8f0;
+}
+
+.md h2 { font-size: 1.05rem; font-weight: 700; margin: 1.1rem 0 0.5rem; color: #f8fafc; }
+.md h3 { font-weight: 600; margin: 0.9rem 0 0.4rem; }
+.md p { margin: 0.55rem 0; line-height: 1.75; }
+.md ul, .md ol { margin: 0.5rem 0 0.5rem 1.25rem; line-height: 1.7; }
+.md ul { list-style: disc; }
+.md ol { list-style: decimal; }
+.md li { margin: 0.2rem 0; }
+.md code { font-family: var(--font-mono); font-size: 0.85em; background: rgba(148, 163, 184, 0.15); padding: 0.1em 0.35em; border-radius: 4px; }
+.md pre { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 0.75rem; overflow-x: auto; margin: 0.6rem 0; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { border-left: 3px solid #8b5cf6; background: rgba(139, 92, 246, 0.08); padding: 0.4rem 0.8rem; margin: 0.7rem 0; border-radius: 0 8px 8px 0; }
+.md strong { color: #f8fafc; }
+.md a { color: #a78bfa; text-decoration: underline; }
+.md table { border-collapse: collapse; margin: 0.6rem 0; font-size: 0.9em; }
+.md th, .md td { border: 1px solid #334155; padding: 0.3rem 0.6rem; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
